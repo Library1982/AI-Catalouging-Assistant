@@ -1,0 +1,42 @@
+# ==========================================
+# DPA MARC AI ASSISTANT
+# ==========================================
+
+# ----- SECRETS / API KEYS -----
+.env
+.env.*
+*.env
+secrets.json
+credentials.json
+
+# ----- PYTHON -----
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+
+# ----- FLUTTER / DART -----
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+
+# ----- IDE -----
+.idea/
+.vscode/
+*.iml
+
+# ----- GENERATED LIBRARY FILES -----
+*.xlsx
+*.xls
+*.csv
+
+# ----- TEMP / LOG FILES -----
+*.log
+*.tmp
+
+# ----- WINDOWS / MAC -----
+Thumbs.db
+.DS_Store
