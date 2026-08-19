@@ -19,7 +19,7 @@ final ValueNotifier<bool> appArabic =
 
 
 // ============================================================
-// TRANSLATIONS
+// TRANSLATION HELPER
 // ============================================================
 
 String tr(
@@ -36,30 +36,39 @@ String tr(
 // ============================================================
 
 void main() {
-  runApp(const DpaMarcApp());
+  runApp(
+    const DpaMarcApp(),
+  );
 }
 
 
 // ============================================================
-// APP
+// APPLICATION
 // ============================================================
 
 class DpaMarcApp extends StatelessWidget {
-  const DpaMarcApp({super.key});
+  const DpaMarcApp({
+    super.key,
+  });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return ValueListenableBuilder<bool>(
-      valueListenable: appArabic,
+      valueListenable:
+          appArabic,
       builder: (
         context,
         isArabic,
         child,
       ) {
         return MaterialApp(
-          debugShowCheckedModeBanner: false,
+          debugShowCheckedModeBanner:
+              false,
 
-          title: 'DPA MARC AI Assistant',
+          title:
+              'DPA MARC AI Assistant',
 
           theme: ThemeData(
             useMaterial3: true,
@@ -116,17 +125,19 @@ class LanguageButton
     return Padding(
       padding:
           const EdgeInsets.symmetric(
-        horizontal: 8,
+        horizontal: 6,
       ),
       child: TextButton.icon(
         onPressed: () {
           appArabic.value =
               !appArabic.value;
         },
-        icon: const Icon(
+        icon:
+            const Icon(
           Icons.language,
         ),
-        label: Text(
+        label:
+            Text(
           isArabic
               ? 'English'
               : 'العربية',
@@ -142,6 +153,7 @@ class LanguageButton
 // ============================================================
 
 class ReviewResult {
+
   final Map<String, dynamic>
       record;
 
@@ -161,7 +173,9 @@ class ReviewResult {
 class CustomMarcField {
 
   String tag;
+
   String indicators;
+
   String value;
 
   CustomMarcField({
@@ -223,26 +237,27 @@ class _HomePageState
     extends State<HomePage> {
 
   // ==========================================================
-  // LOCAL BACKEND
-  // Change this later when publishing online.
+  // PUBLIC RENDER BACKEND
   // ==========================================================
 
-  static const String backendBaseUrl =
-      'http://127.0.0.1:8001';
+  static const String
+      backendBaseUrl =
+      'https://dpa-marc-api.onrender.com';
 
 
-  List<PlatformFile>
+  // ==========================================================
+  // DATA
+  // ==========================================================
+
+  final List<PlatformFile>
       selectedFiles = [];
-
 
   Map<String, dynamic>?
       marcRecord;
 
-
   final List<
           Map<String, dynamic>>
       marcCart = [];
-
 
   bool isAnalyzing = false;
 
@@ -257,7 +272,7 @@ class _HomePageState
 
 
   // ==========================================================
-  // SET STATUS
+  // STATUS
   // ==========================================================
 
   void setStatus(
@@ -272,7 +287,11 @@ class _HomePageState
 
 
   // ==========================================================
-  // PICK FILES
+  // PICK / ADD MULTIPLE FILES
+  //
+  // IMPORTANT MOBILE FIX:
+  // New camera/photo selections are APPENDED.
+  // They do not replace existing files.
   // ==========================================================
 
   Future<void> pickFiles(
@@ -312,18 +331,30 @@ class _HomePageState
 
       setState(() {
 
-        selectedFiles =
-            result.files;
+        // ====================================================
+        // MOBILE CAMERA FIX
+        //
+        // OLD:
+        // selectedFiles = result.files;
+        //
+        // NEW:
+        // Append each new selection.
+        // ====================================================
+
+        selectedFiles.addAll(
+          result.files,
+        );
 
         marcRecord = null;
 
         isReviewed = false;
 
+
         statusEnglish =
-            '${selectedFiles.length} file(s) selected for one bibliographic item.';
+            '${selectedFiles.length} file(s) selected for one bibliographic item. You can add more files before generating MARC.';
 
         statusArabic =
-            'تم اختيار ${selectedFiles.length} ملف/ملفات لمادة ببليوجرافية واحدة.';
+            'تم اختيار ${selectedFiles.length} ملف/ملفات لمادة ببليوجرافية واحدة. يمكنك إضافة المزيد قبل إنشاء MARC.';
       });
 
     } catch (error) {
@@ -501,12 +532,72 @@ class _HomePageState
               .bytesToString();
 
 
-      final Map<
-              String,
-              dynamic>
+      dynamic decoded;
+
+      try {
+        decoded =
+            jsonDecode(
+          responseBody,
+        );
+      } catch (_) {
+        decoded = null;
+      }
+
+
+      if (
+        streamedResponse
+                .statusCode !=
+            200
+      ) {
+
+        final message =
+            decoded is Map
+                ? decoded[
+                            'message']
+                        ?.toString() ??
+                    'Server error.'
+                : 'Server error.';
+
+
+        setStatus(
+          'Server error: $message',
+          'خطأ في الخادم: $message',
+        );
+
+
+        showMessage(
+          tr(
+            isArabic,
+            'Unable to generate MARC record: $message',
+            'تعذر إنشاء تسجيلة MARC: $message',
+          ),
+        );
+
+        return;
+      }
+
+
+      if (
+        decoded is! Map
+      ) {
+
+        showMessage(
+          tr(
+            isArabic,
+            'The backend returned an invalid response.',
+            'أرجع الخادم استجابة غير صالحة.',
+          ),
+        );
+
+        return;
+      }
+
+
+      final Map<String, dynamic>
           data =
-          jsonDecode(
-        responseBody,
+          Map<String, dynamic>
+              .from(
+        decoded,
       );
 
 
@@ -571,7 +662,7 @@ class _HomePageState
 
         showMessage(
           isArabic
-              ? 'تعذر إنشاء تسجيلة MARC.'
+              ? 'تعذر إنشاء تسجيلة MARC: $message'
               : message,
         );
       }
@@ -606,7 +697,7 @@ class _HomePageState
 
 
   // ==========================================================
-  // REVIEW
+  // REVIEW MARC
   // ==========================================================
 
   Future<void>
@@ -830,7 +921,7 @@ class _HomePageState
 
 
   // ==========================================================
-  // RECORD KEY / DUPLICATE
+  // DUPLICATE KEY
   // ==========================================================
 
   String recordKey(
@@ -994,6 +1085,7 @@ class _HomePageState
 
       isReviewed = false;
 
+
       statusEnglish =
           'Approved record added to Master MARC Cart. Ready for the next item.';
 
@@ -1053,21 +1145,15 @@ class _HomePageState
     );
 
 
-    if (mounted) {
+    if (
+      mounted &&
+      marcCart.isEmpty
+    ) {
 
-      if (
-        marcCart.isEmpty
-      ) {
-
-        setStatus(
-          'Master MARC Cart is empty. Ready for the next batch.',
-          'سلة MARC الرئيسية فارغة. جاهز للدفعة التالية.',
-        );
-
-      } else {
-
-        setState(() {});
-      }
+      setStatus(
+        'Master MARC Cart is empty. Ready for the next batch.',
+        'سلة MARC الرئيسية فارغة. جاهز للدفعة التالية.',
+      );
     }
   }
 
@@ -1141,7 +1227,8 @@ class _HomePageState
           14,
         ),
 
-        onTap: onTap,
+        onTap:
+            onTap,
 
         child: Padding(
 
@@ -1269,7 +1356,7 @@ class _HomePageState
 
 
   // ==========================================================
-  // BUILD
+  // HOME BUILD
   // ==========================================================
 
   @override
@@ -1301,7 +1388,8 @@ class _HomePageState
               ),
             ),
 
-            centerTitle: true,
+            centerTitle:
+                true,
 
             actions: [
 
@@ -1313,7 +1401,8 @@ class _HomePageState
 
               Badge(
 
-                label: Text(
+                label:
+                    Text(
                   marcCart.length
                       .toString(),
                 ),
@@ -1322,7 +1411,8 @@ class _HomePageState
                     marcCart
                         .isNotEmpty,
 
-                child: IconButton(
+                child:
+                    IconButton(
 
                   tooltip:
                       tr(
@@ -1355,7 +1445,7 @@ class _HomePageState
 
             padding:
                 const EdgeInsets.all(
-              24,
+              20,
             ),
 
             child: Center(
@@ -1461,8 +1551,8 @@ class _HomePageState
 
                       tr(
                         isArabic,
-                        'Upload bibliographic pages, generate MARC, review, approve and export the final batch to Excel.',
-                        'ارفع الصفحات الببليوجرافية، وأنشئ تسجيلة MARC، ثم راجعها واعتمدها وصدّر الدفعة النهائية إلى Excel.',
+                        'Upload all bibliographic pages for one item, generate MARC, review and approve the record, then add it to the Master Cart.',
+                        'ارفع جميع الصفحات الببليوجرافية الخاصة بمادة واحدة، ثم أنشئ MARC وراجع التسجيلة واعتمدها وأضفها إلى السلة الرئيسية.',
                       ),
 
                       textAlign:
@@ -1497,15 +1587,15 @@ class _HomePageState
                       title:
                           tr(
                         isArabic,
-                        '1. Upload Bibliographic Files',
-                        '1. رفع الملفات الببليوجرافية',
+                        '1. Upload / Add Bibliographic Files',
+                        '1. رفع / إضافة الملفات الببليوجرافية',
                       ),
 
                       subtitle:
                           tr(
                         isArabic,
-                        'Upload multiple images or PDF pages belonging to one item',
-                        'ارفع صوراً متعددة أو صفحات PDF تخص مادة واحدة',
+                        'Take or select photos/PDFs. Open this again to add more pages without losing earlier files.',
+                        'التقط أو اختر صوراً وملفات PDF. افتح هذا الخيار مرة أخرى لإضافة صفحات أخرى دون فقد الملفات السابقة.',
                       ),
 
                       onTap:
@@ -1515,6 +1605,10 @@ class _HomePageState
                       ),
                     ),
 
+
+                    // =========================================
+                    // SELECTED FILE LIST
+                    // =========================================
 
                     if (
                       selectedFiles
@@ -1541,7 +1635,38 @@ class _HomePageState
                           child:
                               Column(
 
+                            crossAxisAlignment:
+                                CrossAxisAlignment
+                                    .stretch,
+
                             children: [
+
+                              Padding(
+
+                                padding:
+                                    const EdgeInsets.all(
+                                  8,
+                                ),
+
+                                child:
+                                    Text(
+
+                                  tr(
+                                    isArabic,
+                                    '${selectedFiles.length} file(s) currently selected',
+                                    'عدد الملفات المحددة حالياً: ${selectedFiles.length}',
+                                  ),
+
+                                  style:
+                                      const TextStyle(
+
+                                    fontWeight:
+                                        FontWeight
+                                            .bold,
+                                  ),
+                                ),
+                              ),
+
 
                               for (
                                 int index =
@@ -1569,13 +1694,28 @@ class _HomePageState
 
                                   title:
                                       Text(
+
                                     selectedFiles[
                                             index]
                                         .name,
+
+                                    maxLines:
+                                        2,
+
+                                    overflow:
+                                        TextOverflow
+                                            .ellipsis,
                                   ),
 
                                   trailing:
                                       IconButton(
+
+                                    tooltip:
+                                        tr(
+                                      isArabic,
+                                      'Remove file',
+                                      'حذف الملف',
+                                    ),
 
                                     icon:
                                         const Icon(
@@ -1594,26 +1734,71 @@ class _HomePageState
                                 ),
 
 
-                              TextButton
-                                  .icon(
+                              const SizedBox(
+                                height: 8,
+                              ),
 
-                                onPressed:
-                                    clearFiles,
 
-                                icon:
-                                    const Icon(
-                                  Icons
-                                      .delete_outline,
-                                ),
+                              Wrap(
 
-                                label:
-                                    Text(
-                                  tr(
-                                    isArabic,
-                                    'Clear All Files',
-                                    'مسح جميع الملفات',
+                                alignment:
+                                    WrapAlignment
+                                        .center,
+
+                                spacing: 8,
+
+                                runSpacing: 8,
+
+                                children: [
+
+                                  FilledButton
+                                      .tonalIcon(
+
+                                    onPressed:
+                                        () =>
+                                            pickFiles(
+                                      isArabic,
+                                    ),
+
+                                    icon:
+                                        const Icon(
+                                      Icons
+                                          .add_photo_alternate_outlined,
+                                    ),
+
+                                    label:
+                                        Text(
+                                      tr(
+                                        isArabic,
+                                        'Add More Photos / PDFs',
+                                        'إضافة صور / ملفات PDF أخرى',
+                                      ),
+                                    ),
                                   ),
-                                ),
+
+
+                                  TextButton
+                                      .icon(
+
+                                    onPressed:
+                                        clearFiles,
+
+                                    icon:
+                                        const Icon(
+                                      Icons
+                                          .delete_outline,
+                                    ),
+
+                                    label:
+                                        Text(
+                                      tr(
+                                        isArabic,
+                                        'Clear All Files',
+                                        'مسح جميع الملفات',
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -1641,8 +1826,8 @@ class _HomePageState
                       subtitle:
                           tr(
                         isArabic,
-                        'AI analyses all supplied pages and creates one MARC 21 record',
-                        'يحلل الذكاء الاصطناعي جميع الصفحات وينشئ تسجيلة MARC 21 واحدة',
+                        'AI analyses all selected pages together and creates one MARC 21 record',
+                        'يحلل الذكاء الاصطناعي جميع الصفحات المحددة معاً وينشئ تسجيلة MARC 21 واحدة',
                       ),
 
                       loading:
@@ -1893,40 +2078,61 @@ class _HomePageState
                           ),
                         ),
 
-                        child: Row(
+                        child:
+                            Wrap(
+
+                          alignment:
+                              WrapAlignment
+                                  .spaceBetween,
+
+                          crossAxisAlignment:
+                              WrapCrossAlignment
+                                  .center,
+
+                          spacing:
+                              12,
+
+                          runSpacing:
+                              10,
 
                           children: [
 
-                            const Icon(
-                              Icons
-                                  .shopping_cart_checkout,
-                            ),
+                            Row(
 
+                              mainAxisSize:
+                                  MainAxisSize
+                                      .min,
 
-                            const SizedBox(
-                              width: 12,
-                            ),
+                              children: [
 
-
-                            Expanded(
-
-                              child:
-                                  Text(
-
-                                tr(
-                                  isArabic,
-                                  '${marcCart.length} approved MARC record(s) in Master Cart.',
-                                  '${marcCart.length} تسجيلة MARC معتمدة في السلة الرئيسية.',
+                                const Icon(
+                                  Icons
+                                      .shopping_cart_checkout,
                                 ),
 
-                                style:
-                                    const TextStyle(
 
-                                  fontWeight:
-                                      FontWeight
-                                          .w600,
+                                const SizedBox(
+                                  width: 10,
                                 ),
-                              ),
+
+
+                                Text(
+
+                                  tr(
+                                    isArabic,
+                                    '${marcCart.length} approved MARC record(s) in Master Cart.',
+                                    '${marcCart.length} تسجيلة MARC معتمدة في السلة الرئيسية.',
+                                  ),
+
+                                  style:
+                                      const TextStyle(
+
+                                    fontWeight:
+                                        FontWeight
+                                            .w600,
+                                  ),
+                                ),
+                              ],
                             ),
 
 
@@ -1971,6 +2177,10 @@ class _HomePageState
                         'DPA Library AI MARC Cataloguing Project',
                         'مشروع الفهرسة الذكية MARC للمكتبة',
                       ),
+
+                      textAlign:
+                          TextAlign
+                              .center,
 
                       style:
                           const TextStyle(
@@ -2064,11 +2274,12 @@ class MarcCartPage
 class _MarcCartPageState
     extends State<MarcCartPage> {
 
-  bool exporting = false;
+  bool exporting =
+      false;
 
 
   // ==========================================================
-  // EXPORT
+  // EXPORT ALL
   // ==========================================================
 
   Future<void>
@@ -2099,13 +2310,15 @@ class _MarcCartPageState
     final confirmed =
         await showDialog<bool>(
 
-      context: context,
+      context:
+          context,
 
       builder:
           (context) =>
               AlertDialog(
 
-        title: Text(
+        title:
+            Text(
           tr(
             isArabic,
             'Download Master MARC Excel',
@@ -2113,7 +2326,8 @@ class _MarcCartPageState
           ),
         ),
 
-        content: Text(
+        content:
+            Text(
 
           tr(
             isArabic,
@@ -2133,7 +2347,8 @@ class _MarcCartPageState
               false,
             ),
 
-            child: Text(
+            child:
+                Text(
               tr(
                 isArabic,
                 'Cancel',
@@ -2158,7 +2373,8 @@ class _MarcCartPageState
                   .download_outlined,
             ),
 
-            label: Text(
+            label:
+                Text(
               tr(
                 isArabic,
                 'Download Excel',
@@ -2210,12 +2426,38 @@ class _MarcCartPageState
             200
       ) {
 
+        String message =
+            tr(
+          isArabic,
+          'Unable to create Excel workbook.',
+          'تعذر إنشاء ملف Excel.',
+        );
+
+
+        try {
+
+          final data =
+              jsonDecode(
+            response.body,
+          );
+
+
+          if (
+            data is Map &&
+            data['message'] !=
+                null
+          ) {
+
+            message =
+                data['message']
+                    .toString();
+          }
+
+        } catch (_) {}
+
+
         showMessage(
-          tr(
-            isArabic,
-            'Unable to create Excel workbook.',
-            'تعذر إنشاء ملف Excel.',
-          ),
+          message,
         );
 
         return;
@@ -2273,7 +2515,8 @@ class _MarcCartPageState
 
         if (
           match != null &&
-          match.group(1) != null
+          match.group(1) !=
+              null
         ) {
 
           filename =
@@ -2283,7 +2526,7 @@ class _MarcCartPageState
 
 
       // ======================================================
-      // DOWNLOAD
+      // BROWSER DOWNLOAD
       // ======================================================
 
       final Uint8List bytes =
@@ -2353,7 +2596,7 @@ class _MarcCartPageState
 
 
       // ======================================================
-      // CLEAR CART AFTER SUCCESSFUL DOWNLOAD
+      // CLEAR CART AFTER SUCCESS
       // ======================================================
 
       setState(() {
@@ -2367,13 +2610,15 @@ class _MarcCartPageState
 
       await showDialog<void>(
 
-        context: context,
+        context:
+            context,
 
         builder:
             (context) =>
                 AlertDialog(
 
-          title: Text(
+          title:
+              Text(
             tr(
               isArabic,
               'Excel Download Successful',
@@ -2381,10 +2626,12 @@ class _MarcCartPageState
             ),
           ),
 
-          content: Column(
+          content:
+              Column(
 
             mainAxisSize:
-                MainAxisSize.min,
+                MainAxisSize
+                    .min,
 
             crossAxisAlignment:
                 CrossAxisAlignment
@@ -2407,6 +2654,7 @@ class _MarcCartPageState
 
 
               Text(
+
                 tr(
                   isArabic,
                   'Downloaded file:',
@@ -2417,7 +2665,8 @@ class _MarcCartPageState
                     const TextStyle(
 
                   fontWeight:
-                      FontWeight.bold,
+                      FontWeight
+                          .bold,
                 ),
               ),
 
@@ -2458,7 +2707,8 @@ class _MarcCartPageState
                 context,
               ),
 
-              child: Text(
+              child:
+                  Text(
                 tr(
                   isArabic,
                   'OK',
@@ -2503,7 +2753,9 @@ class _MarcCartPageState
   ) {
 
     widget.records
-        .removeAt(index);
+        .removeAt(
+      index,
+    );
 
 
     setState(() {});
@@ -2541,13 +2793,15 @@ class _MarcCartPageState
     final confirmed =
         await showDialog<bool>(
 
-      context: context,
+      context:
+          context,
 
       builder:
           (context) =>
               AlertDialog(
 
-        title: Text(
+        title:
+            Text(
           tr(
             isArabic,
             'Clear Master MARC Cart',
@@ -2555,7 +2809,9 @@ class _MarcCartPageState
           ),
         ),
 
-        content: Text(
+        content:
+            Text(
+
           tr(
             isArabic,
             'Remove all ${widget.records.length} record(s) from the cart?',
@@ -2574,7 +2830,8 @@ class _MarcCartPageState
               false,
             ),
 
-            child: Text(
+            child:
+                Text(
               tr(
                 isArabic,
                 'Cancel',
@@ -2593,7 +2850,8 @@ class _MarcCartPageState
               true,
             ),
 
-            child: Text(
+            child:
+                Text(
               tr(
                 isArabic,
                 'Clear Cart',
@@ -2651,7 +2909,7 @@ class _MarcCartPageState
 
 
   // ==========================================================
-  // BUILD
+  // CART BUILD
   // ==========================================================
 
   @override
@@ -2673,9 +2931,11 @@ class _MarcCartPageState
 
         return Scaffold(
 
-          appBar: AppBar(
+          appBar:
+              AppBar(
 
-            title: Text(
+            title:
+                Text(
               tr(
                 isArabic,
                 'Master MARC Cart',
@@ -2727,97 +2987,115 @@ class _MarcCartPageState
                   ? Center(
 
                       child:
-                          Column(
+                          SingleChildScrollView(
 
-                        mainAxisAlignment:
-                            MainAxisAlignment
-                                .center,
+                        padding:
+                            const EdgeInsets.all(
+                          20,
+                        ),
 
-                        children: [
+                        child:
+                            Column(
 
-                          Icon(
+                          mainAxisAlignment:
+                              MainAxisAlignment
+                                  .center,
 
-                            Icons
-                                .shopping_cart_outlined,
+                          children: [
 
-                            size: 80,
+                            Icon(
 
-                            color:
-                                Colors
-                                    .grey
-                                    .shade400,
-                          ),
-
-
-                          const SizedBox(
-                            height: 18,
-                          ),
-
-
-                          Text(
-
-                            tr(
-                              isArabic,
-                              'Master MARC Cart is empty',
-                              'سلة MARC الرئيسية فارغة',
-                            ),
-
-                            style:
-                                const TextStyle(
-
-                              fontSize:
-                                  22,
-
-                              fontWeight:
-                                  FontWeight
-                                      .bold,
-                            ),
-                          ),
-
-
-                          const SizedBox(
-                            height: 8,
-                          ),
-
-
-                          Text(
-                            tr(
-                              isArabic,
-                              'Ready for the next cataloguing batch.',
-                              'جاهز لدفعة الفهرسة التالية.',
-                            ),
-                          ),
-
-
-                          const SizedBox(
-                            height: 20,
-                          ),
-
-
-                          FilledButton.icon(
-
-                            onPressed:
-                                () =>
-                                    Navigator.pop(
-                              context,
-                            ),
-
-                            icon:
-                                const Icon(
                               Icons
-                                  .arrow_back,
+                                  .shopping_cart_outlined,
+
+                              size: 80,
+
+                              color:
+                                  Colors
+                                      .grey
+                                      .shade400,
                             ),
 
-                            label:
-                                Text(
+
+                            const SizedBox(
+                              height: 18,
+                            ),
+
+
+                            Text(
+
                               tr(
                                 isArabic,
-                                'Return to Cataloguing',
-                                'العودة إلى الفهرسة',
+                                'Master MARC Cart is empty',
+                                'سلة MARC الرئيسية فارغة',
+                              ),
+
+                              textAlign:
+                                  TextAlign
+                                      .center,
+
+                              style:
+                                  const TextStyle(
+
+                                fontSize:
+                                    22,
+
+                                fontWeight:
+                                    FontWeight
+                                        .bold,
                               ),
                             ),
-                          ),
-                        ],
+
+
+                            const SizedBox(
+                              height: 8,
+                            ),
+
+
+                            Text(
+
+                              tr(
+                                isArabic,
+                                'Ready for the next cataloguing batch.',
+                                'جاهز لدفعة الفهرسة التالية.',
+                              ),
+
+                              textAlign:
+                                  TextAlign
+                                      .center,
+                            ),
+
+
+                            const SizedBox(
+                              height: 20,
+                            ),
+
+
+                            FilledButton.icon(
+
+                              onPressed:
+                                  () =>
+                                      Navigator.pop(
+                                context,
+                              ),
+
+                              icon:
+                                  const Icon(
+                                Icons
+                                    .arrow_back,
+                              ),
+
+                              label:
+                                  Text(
+                                tr(
+                                  isArabic,
+                                  'Return to Cataloguing',
+                                  'العودة إلى الفهرسة',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     )
 
@@ -2857,7 +3135,8 @@ class _MarcCartPageState
                             ),
                           ),
 
-                          child: Row(
+                          child:
+                              Row(
 
                             children: [
 
@@ -3198,7 +3477,7 @@ class _MarcReviewPageState
 
 
   // ==========================================================
-  // FIELD LABEL
+  // LABELS
   // ==========================================================
 
   String fieldLabel(
@@ -3208,139 +3487,162 @@ class _MarcReviewPageState
 
     final labels = {
 
-      'field_020': tr(
+      'field_020':
+          tr(
         ar,
         '020 — ISBN',
         '020 — الرقم الدولي المعياري للكتاب',
       ),
 
-      'field_041': tr(
+      'field_041':
+          tr(
         ar,
         '041 — Language',
         '041 — اللغة',
       ),
 
-      'field_050': tr(
+      'field_050':
+          tr(
         ar,
         '050 — LC Classification',
         '050 — تصنيف مكتبة الكونغرس',
       ),
 
-      'field_082': tr(
+      'field_082':
+          tr(
         ar,
         '082 — Dewey Decimal Classification',
         '082 — تصنيف ديوي العشري',
       ),
 
-      'field_100': tr(
+      'field_100':
+          tr(
         ar,
         '100 — Main Author',
         '100 — المؤلف الرئيسي',
       ),
 
-      'field_110': tr(
+      'field_110':
+          tr(
         ar,
         '110 — Corporate Main Entry',
         '110 — المدخل الرئيسي للهيئة',
       ),
 
-      'field_245': tr(
+      'field_245':
+          tr(
         ar,
         '245 — Title & Statement of Responsibility',
         '245 — العنوان وبيان المسؤولية',
       ),
 
-      'field_250': tr(
+      'field_250':
+          tr(
         ar,
         '250 — Edition',
         '250 — الطبعة',
       ),
 
-      'field_264': tr(
+      'field_264':
+          tr(
         ar,
         '264 — Publication / Production',
         '264 — النشر / الإنتاج',
       ),
 
-      'field_300': tr(
+      'field_300':
+          tr(
         ar,
         '300 — Physical Description',
         '300 — الوصف المادي',
       ),
 
-      'field_490': tr(
+      'field_490':
+          tr(
         ar,
         '490 — Series',
         '490 — السلسلة',
       ),
 
-      'field_500': tr(
+      'field_500':
+          tr(
         ar,
         '500 — General Notes',
         '500 — الملاحظات العامة',
       ),
 
-      'field_502': tr(
+      'field_502':
+          tr(
         ar,
         '502 — Thesis / Dissertation Note',
         '502 — ملاحظة الرسالة / الأطروحة',
       ),
 
-      'field_504': tr(
+      'field_504':
+          tr(
         ar,
         '504 — Bibliographical References / Index',
         '504 — المراجع الببليوجرافية / الكشاف',
       ),
 
-      'field_505': tr(
+      'field_505':
+          tr(
         ar,
         '505 — Contents Note',
         '505 — ملاحظة المحتويات',
       ),
 
-      'field_600': tr(
+      'field_600':
+          tr(
         ar,
         '600 — Personal Name Subjects',
         '600 — رؤوس موضوعات أسماء الأشخاص',
       ),
 
-      'field_610': tr(
+      'field_610':
+          tr(
         ar,
         '610 — Corporate Name Subjects',
         '610 — رؤوس موضوعات أسماء الهيئات',
       ),
 
-      'field_650': tr(
+      'field_650':
+          tr(
         ar,
         '650 — Topical Subjects',
         '650 — رؤوس الموضوعات',
       ),
 
-      'field_651': tr(
+      'field_651':
+          tr(
         ar,
         '651 — Geographic Subjects',
         '651 — الموضوعات الجغرافية',
       ),
 
-      'field_700': tr(
+      'field_700':
+          tr(
         ar,
         '700 — Added Personal Entries',
         '700 — المداخل الإضافية للأشخاص',
       ),
 
-      'field_710': tr(
+      'field_710':
+          tr(
         ar,
         '710 — Added Corporate Entries',
         '710 — المداخل الإضافية للهيئات',
       ),
 
-      'field_856': tr(
+      'field_856':
+          tr(
         ar,
         '856 — Electronic Access',
         '856 — الوصول الإلكتروني',
       ),
 
-      'field_949': tr(
+      'field_949':
+          tr(
         ar,
         '949 — Local Call Number',
         '949 — رقم الاستدعاء المحلي',
@@ -3372,7 +3674,8 @@ class _MarcReviewPageState
           widget.record[field];
 
 
-      String text = '';
+      String text =
+          '';
 
 
       if (
@@ -3395,7 +3698,8 @@ class _MarcReviewPageState
 
       controllers[field] =
           TextEditingController(
-        text: text,
+        text:
+            text,
       );
     }
 
@@ -3436,7 +3740,82 @@ class _MarcReviewPageState
 
 
   // ==========================================================
-  // ADD FIELD
+  // CUSTOM FIELD VALIDATION
+  // ==========================================================
+
+  String? validateCustomField({
+
+    required String tag,
+
+    required String indicators,
+
+    required String value,
+  }) {
+
+    if (
+      !RegExp(
+        r'^\d{3}$',
+      ).hasMatch(
+        tag,
+      )
+    ) {
+
+      return 'MARC tag must contain exactly 3 digits.';
+    }
+
+
+    if (
+      indicators.length >
+          2
+    ) {
+
+      return 'Indicators may contain a maximum of 2 characters.';
+    }
+
+
+    if (
+      value.trim().isEmpty
+    ) {
+
+      return 'Enter a MARC field value.';
+    }
+
+
+    final numericTag =
+        int.tryParse(
+          tag,
+        ) ??
+        0;
+
+
+    if (
+      numericTag >= 10 &&
+      !value.contains(
+        r'$',
+      )
+    ) {
+
+      return 'This MARC field should normally contain a subfield such as \$a.';
+    }
+
+
+    if (
+      tag == '650' &&
+      !value.contains(
+        r'$a',
+      )
+    ) {
+
+      return '650 should contain \$a.';
+    }
+
+
+    return null;
+  }
+
+
+  // ==========================================================
+  // ADD CUSTOM MARC FIELD
   // ==========================================================
 
   Future<void> addMarcField(
@@ -3461,13 +3840,15 @@ class _MarcReviewPageState
         await showDialog<
             CustomMarcField>(
 
-      context: context,
+      context:
+          context,
 
       builder:
           (context) =>
               AlertDialog(
 
-        title: Text(
+        title:
+            Text(
           tr(
             isArabic,
             'Add MARC Field',
@@ -3475,14 +3856,17 @@ class _MarcReviewPageState
           ),
         ),
 
-        content: SizedBox(
+        content:
+            SizedBox(
 
           width: 500,
 
-          child: Column(
+          child:
+              Column(
 
             mainAxisSize:
-                MainAxisSize.min,
+                MainAxisSize
+                    .min,
 
             children: [
 
@@ -3492,6 +3876,10 @@ class _MarcReviewPageState
                     tagController,
 
                 maxLength: 3,
+
+                keyboardType:
+                    TextInputType
+                        .number,
 
                 decoration:
                     InputDecoration(
@@ -3505,6 +3893,13 @@ class _MarcReviewPageState
 
                   hintText:
                       '590',
+
+                  helperText:
+                      tr(
+                    isArabic,
+                    'Example: 246, 520, 590, 650, 700',
+                    'مثال: 246، 520، 590، 650، 700',
+                  ),
 
                   border:
                       const OutlineInputBorder(),
@@ -3588,7 +3983,8 @@ class _MarcReviewPageState
               context,
             ),
 
-            child: Text(
+            child:
+                Text(
               tr(
                 isArabic,
                 'Cancel',
@@ -3600,16 +3996,11 @@ class _MarcReviewPageState
 
           FilledButton.icon(
 
-            onPressed: () {
+            onPressed:
+                () {
 
               final tag =
                   tagController
-                      .text
-                      .trim();
-
-
-              final value =
-                  valueController
                       .text
                       .trim();
 
@@ -3620,25 +4011,10 @@ class _MarcReviewPageState
                       .trim();
 
 
-              if (
-                tag.length !=
-                        3 ||
-                int.tryParse(
-                      tag,
-                    ) ==
-                    null
-              ) {
-
-                return;
-              }
-
-
-              if (
-                value.isEmpty
-              ) {
-
-                return;
-              }
+              final value =
+                  valueController
+                      .text
+                      .trim();
 
 
               if (
@@ -3650,13 +4026,48 @@ class _MarcReviewPageState
               }
 
 
+              final validation =
+                  validateCustomField(
+
+                tag:
+                    tag,
+
+                indicators:
+                    indicators,
+
+                value:
+                    value,
+              );
+
+
+              if (
+                validation != null
+              ) {
+
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(
+
+                  SnackBar(
+                    content:
+                        Text(
+                      validation,
+                    ),
+                  ),
+                );
+
+                return;
+              }
+
+
               Navigator.pop(
 
                 context,
 
                 CustomMarcField(
 
-                  tag: tag,
+                  tag:
+                      tag,
 
                   indicators:
                       indicators,
@@ -3672,7 +4083,8 @@ class _MarcReviewPageState
               Icons.add,
             ),
 
-            label: Text(
+            label:
+                Text(
               tr(
                 isArabic,
                 'Add Field',
@@ -3748,12 +4160,16 @@ class _MarcReviewPageState
                       '\n',
                     )
                     .map(
-                      (line) =>
+                      (
+                        line,
+                      ) =>
                           line
                               .trim(),
                     )
                     .where(
-                      (line) =>
+                      (
+                        line,
+                      ) =>
                           line
                               .isNotEmpty,
                     )
@@ -3773,7 +4189,9 @@ class _MarcReviewPageState
         'custom_fields'] =
         customFields
             .map(
-              (item) =>
+              (
+                item,
+              ) =>
                   item
                       .toJson(),
             )
@@ -3809,7 +4227,8 @@ class _MarcReviewPageState
 
       SnackBar(
 
-        content: Text(
+        content:
+            Text(
           tr(
             isArabic,
             'MARC changes saved.',
@@ -3844,7 +4263,7 @@ class _MarcReviewPageState
 
 
   // ==========================================================
-  // BACK
+  // BACK WITHOUT APPROVAL
   // ==========================================================
 
   void closeWithoutApproval() {
@@ -3902,14 +4321,16 @@ class _MarcReviewPageState
         bottom: 12,
       ),
 
-      child: Padding(
+      child:
+          Padding(
 
         padding:
             const EdgeInsets.all(
           14,
         ),
 
-        child: Column(
+        child:
+            Column(
 
           crossAxisAlignment:
               CrossAxisAlignment
@@ -3931,7 +4352,8 @@ class _MarcReviewPageState
                     FontWeight
                         .bold,
 
-                fontSize: 15,
+                fontSize:
+                    15,
               ),
             ),
 
@@ -3955,7 +4377,8 @@ class _MarcReviewPageState
                       ? 2
                       : 1,
 
-              maxLines: null,
+              maxLines:
+                  null,
 
               decoration:
                   InputDecoration(
@@ -3988,7 +4411,7 @@ class _MarcReviewPageState
 
 
   // ==========================================================
-  // BUILD REVIEW PAGE
+  // REVIEW PAGE BUILD
   // ==========================================================
 
   @override
@@ -4010,7 +4433,8 @@ class _MarcReviewPageState
 
         return Scaffold(
 
-          appBar: AppBar(
+          appBar:
+              AppBar(
 
             leading:
                 IconButton(
@@ -4025,7 +4449,8 @@ class _MarcReviewPageState
                   closeWithoutApproval,
             ),
 
-            title: Text(
+            title:
+                Text(
               tr(
                 isArabic,
                 'Review & Edit MARC 21',
@@ -4051,7 +4476,8 @@ class _MarcReviewPageState
               20,
             ),
 
-            child: Center(
+            child:
+                Center(
 
               child:
                   ConstrainedBox(
@@ -4062,7 +4488,8 @@ class _MarcReviewPageState
                       900,
                 ),
 
-                child: Column(
+                child:
+                    Column(
 
                   children: [
 
@@ -4100,8 +4527,8 @@ class _MarcReviewPageState
 
                                 tr(
                                   isArabic,
-                                  'Review all AI-generated fields, correct them if required, add additional MARC fields, then approve the record.',
-                                  'راجع جميع الحقول التي أنشأها الذكاء الاصطناعي، وصححها عند الحاجة، وأضف حقول MARC إضافية، ثم اعتمد التسجيلة.',
+                                  'Review all AI-generated MARC fields. Correct them if required, add additional fields, then approve the record.',
+                                  'راجع جميع حقول MARC التي أنشأها الذكاء الاصطناعي، وصححها عند الحاجة، وأضف الحقول الإضافية، ثم اعتمد التسجيلة.',
                                 ),
                               ),
                             ),
@@ -4390,6 +4817,10 @@ class _MarcReviewPageState
                         'DPA Library AI MARC Cataloguing Project',
                         'مشروع الفهرسة الذكية MARC للمكتبة',
                       ),
+
+                      textAlign:
+                          TextAlign
+                              .center,
 
                       style:
                           const TextStyle(
