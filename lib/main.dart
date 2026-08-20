@@ -5,177 +5,1858 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:web/web.dart' as web;
-
-
-// ============================================================
-// GLOBAL LANGUAGE
-// false = English
-// true  = Arabic
-// ============================================================
 
 final ValueNotifier<bool> appArabic =
     ValueNotifier<bool>(false);
 
-
-// ============================================================
-// TRANSLATION HELPER
-// ============================================================
-
 String tr(
   bool ar,
   String en,
-  String arabic,
-) {
-  return ar ? arabic : en;
-}
+  String arText,
+) =>
+    ar ? arText : en;
 
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-// ============================================================
-// MAIN
-// ============================================================
-
-void main() {
-  runApp(
-    const DpaMarcApp(),
+  await Supabase.initialize(
+    url: 'https://umszqlxnptewnxsljozw.supabase.co',
+    publishableKey: 'sb_publishable_enDOJJSkwbR0ygKlx4wAcg_qz3gGiu7',
   );
+
+  runApp(const DpaMarcApp());
 }
-
-
-// ============================================================
-// APPLICATION
-// ============================================================
 
 class DpaMarcApp extends StatelessWidget {
-  const DpaMarcApp({
-    super.key,
-  });
+  const DpaMarcApp({super.key});
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
-      valueListenable:
-          appArabic,
-      builder: (
-        context,
-        isArabic,
-        child,
-      ) {
-        return MaterialApp(
-          debugShowCheckedModeBanner:
-              false,
+      valueListenable: appArabic,
+      builder: (context, isArabic, _) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'MARC AI Assistant',
+        theme: ThemeData(
+          useMaterial3: true,
+          colorSchemeSeed: Colors.indigo,
+          scaffoldBackgroundColor: const Color(0xfff7f7fb),
+        ),
+        builder: (context, child) => Directionality(
+          textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+          child: child ?? const SizedBox(),
+        ),
+        home: const LandingPage(),
+      ),
+    );
+  }
+}
 
-          title:
-              'DPA MARC AI Assistant',
+// ============================================================
+// COMMERCIAL LANDING PAGE
+// ============================================================
 
-          theme: ThemeData(
-            useMaterial3: true,
-            colorSchemeSeed:
-                Colors.indigo,
-            scaffoldBackgroundColor:
-                const Color(
-              0xfff7f7fb,
+class LandingPage extends StatefulWidget {
+  const LandingPage({super.key});
+  @override
+  State<LandingPage> createState() => _LandingPageState();
+}
+
+class _LandingPageState extends State<LandingPage> {
+  User? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _checkCurrentUserStatus();
+
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (!mounted) return;
+      _checkCurrentUserStatus();
+    });
+  }
+
+  Future<void> _checkCurrentUserStatus() async {
+    final user = Supabase.instance.client.auth.currentUser;
+
+    if (user == null) {
+      if (!mounted) return;
+
+      setState(() {
+        _currentUser = null;
+      });
+
+      return;
+    }
+
+  try {
+    final profile = await Supabase.instance.client
+        .from('user_profiles')
+        .select('account_status, role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+    if (!mounted) return;
+
+    final status =
+        profile?['account_status']?.toString() ?? 'disabled';
+
+    final role =
+        profile?['role']?.toString() ?? 'user';
+
+    // Super Admin is allowed
+    if (role == 'super_admin') {
+      setState(() {
+        _currentUser = user;
+      });
+      return;
+    }
+
+    // Normal active user
+    if (status == 'active') {
+      setState(() {
+        _currentUser = user;
+      });
+      return;
+    }
+
+    // Suspended or disabled user
+    await Supabase.instance.client.auth.signOut();
+
+    if (!mounted) return;
+
+    setState(() {
+      _currentUser = null;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            status == 'suspended'
+                ? 'Account suspended. Please contact the administrator.'
+                : 'Account disabled. Please contact the administrator.',
+          ),
+        ),
+      );
+    });
+  } catch (e) {
+    if (!mounted) return;
+
+    setState(() {
+      _currentUser = null;
+    });
+  }
+}
+
+  static const navy = Color(0xFF071A33);
+  static const accent = Color(0xFFF4F7CFF);
+
+  final homeKey = GlobalKey();
+  final aboutKey = GlobalKey();
+  final featuresKey = GlobalKey();
+  final howKey = GlobalKey();
+  final pricingKey = GlobalKey();
+  final faqKey = GlobalKey();
+
+  void scrollTo(GlobalKey key) {
+    final c = key.currentContext;
+    if (c == null) return;
+    Scrollable.ensureVisible(
+      c,
+      duration: const Duration(milliseconds: 650),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  Future<void> launchApp() async {
+  final user = Supabase.instance.client.auth.currentUser;
+
+  // Not signed in -> go to login
+  if (user == null) {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const AuthPage(),
+      ),
+    );
+
+    if (!mounted) return;
+
+    await _checkCurrentUserStatus();
+    return;
+  }
+
+  try {
+    final profile = await Supabase.instance.client
+        .from('user_profiles')
+        .select('account_status, role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+    if (!mounted) return;
+
+    final status =
+        profile?['account_status']?.toString() ?? 'disabled';
+
+    final role =
+        profile?['role']?.toString() ?? 'user';
+
+    // Super Admin always allowed
+    if (role == 'super_admin') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const HomePage(),
+        ),
+      );
+      return;
+    }
+
+    // Normal active user allowed
+    if (status == 'active') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const HomePage(),
+        ),
+      );
+      return;
+    }
+
+    // Suspended / disabled user -> block access
+    await Supabase.instance.client.auth.signOut();
+
+    if (!mounted) return;
+
+    setState(() {
+      _currentUser = null;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          status == 'suspended'
+              ? 'Account suspended. Please contact the administrator.'
+              : 'Account disabled. Please contact the administrator.',
+        ),
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Unable to verify account access. Please try again.',
+        ),
+      ),
+    );
+  }
+}
+  void comingSoon(bool ar) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          tr(
+            ar,
+            'Login, credits and online payment are being prepared for the Version 1.0 launch.',
+            'يتم حالياً تجهيز تسجيل الدخول والرصيد والدفع الإلكتروني لإطلاق الإصدار 1.0.',
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget titleBlock(
+    bool ar,
+    String eyebrowEn,
+    String eyebrowAr,
+    String titleEn,
+    String titleAr,
+    String textEn,
+    String textAr,
+  ) {
+    return Column(
+      children: [
+        Text(
+          tr(ar, eyebrowEn, eyebrowAr).toUpperCase(),
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: accent,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.6,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          tr(ar, titleEn, titleAr),
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: navy,
+            fontSize: 36,
+            height: 1.15,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: Text(
+            tr(ar, textEn, textAr),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey.shade700,
+              fontSize: 17,
+              height: 1.65,
             ),
           ),
+        ),
+      ],
+    );
+  }
 
-          builder: (
-            context,
-            child,
-          ) {
-            return Directionality(
-              textDirection:
-                  isArabic
-                      ? TextDirection.rtl
-                      : TextDirection.ltr,
-              child:
-                  child ??
-                      const SizedBox(),
-            );
-          },
+  Widget infoCard(
+    bool ar,
+    IconData icon,
+    String enTitle,
+    String arTitle,
+    String enText,
+    String arText,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE5EAF2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(.04),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF0FF),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Icon(icon, color: accent),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            tr(ar, enTitle, arTitle),
+            style: const TextStyle(
+              color: navy,
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            tr(ar, enText, arText),
+            style: TextStyle(color: Colors.grey.shade700, height: 1.55),
+          ),
+        ],
+      ),
+    );
+  }
 
-          home:
-              const HomePage(),
+  Widget priceCard(
+    bool ar,
+    String title,
+    String records,
+    String price, {
+    bool featured = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: featured ? navy : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: featured ? navy : const Color(0xFFE5EAF2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: featured ? Colors.white : navy,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            price,
+            style: TextStyle(
+              color: featured ? Colors.white : navy,
+              fontSize: 30,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            records,
+            style: TextStyle(
+              color: featured ? Colors.white70 : Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 20),
+          _Check(
+            text: tr(ar, 'AI MARC generation', 'إنشاء MARC بالذكاء الاصطناعي'),
+            featured: featured,
+          ),
+          const SizedBox(height: 8),
+          _Check(
+            text: tr(ar, 'Arabic & English', 'العربية والإنجليزية'),
+            featured: featured,
+          ),
+          const SizedBox(height: 8),
+          _Check(
+            text: tr(ar, 'Mobile + Desktop', 'الهاتف + الكمبيوتر'),
+            featured: featured,
+          ),
+          const Spacer(),
+          SizedBox(
+            width: double.infinity,
+            child: featured
+                ? FilledButton(
+                    onPressed: () => comingSoon(ar),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: navy,
+                    ),
+                    child: Text(tr(ar, 'Choose Plan', 'اختر الخطة')),
+                  )
+                : OutlinedButton(
+                    onPressed: () => comingSoon(ar),
+                    child: Text(tr(ar, 'Choose Plan', 'اختر الخطة')),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: appArabic,
+      builder: (context, ar, _) {
+        final width = MediaQuery.sizeOf(context).width;
+        final desktop = width > 1000;
+
+        return Scaffold(
+          drawer: desktop
+              ? null
+              : Drawer(
+                  child: SafeArea(
+                    child: ListView(
+                      padding: const EdgeInsets.all(12),
+                      children: [
+                        const ListTile(
+                          leading: Icon(Icons.local_library_outlined),
+                          title: Text(
+                            'MARC AI',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        const Divider(),
+                        _DrawerNav(
+                          label: tr(ar, 'Home', 'الرئيسية'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            scrollTo(homeKey);
+                          },
+                        ),
+                        _DrawerNav(
+                          label: tr(ar, 'About', 'من نحن'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            scrollTo(aboutKey);
+                          },
+                        ),
+                        _DrawerNav(
+                          label: tr(ar, 'Features', 'المزايا'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            scrollTo(featuresKey);
+                          },
+                        ),
+                        _DrawerNav(
+                          label: tr(ar, 'How It Works', 'كيف يعمل'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            scrollTo(howKey);
+                          },
+                        ),
+                        _DrawerNav(
+                          label: tr(ar, 'Pricing', 'الأسعار'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            scrollTo(pricingKey);
+                          },
+                        ),
+                        _DrawerNav(
+                          label: tr(ar, 'FAQ', 'الأسئلة الشائعة'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            scrollTo(faqKey);
+                          },
+                        ),
+                        const Divider(),
+                        ListTile(
+                          leading: const Icon(Icons.login),
+                          title: Text(tr(ar, 'Sign In', 'تسجيل الدخول')),
+                          onTap: () {
+  Navigator.pop(context);
+
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => const AuthPage(),
+    ),
+  );
+},
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.rocket_launch_outlined),
+                          title: Text(tr(ar, 'Launch App', 'تشغيل التطبيق')),
+                          onTap: () {
+                            Navigator.pop(context);
+                            launchApp();
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+          body: Builder(
+            builder: (scaffoldContext) => SingleChildScrollView(
+              child: Column(
+                children: [
+                  // HERO
+                  Container(
+                    key: homeKey,
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF06172E),
+                          Color(0xFF102A4C),
+                          Color(0xFF173E68),
+                        ],
+                      ),
+                    ),
+                    child: SafeArea(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: desktop ? 48 : 16,
+                        ),
+                        child: Column(
+                          children: [
+                            SizedBox(
+                              height: 82,
+                              child: Row(
+                                children: [
+                                  if (!desktop)
+                                    IconButton(
+                                      onPressed: () =>
+                                          Scaffold.of(scaffoldContext)
+                                              .openDrawer(),
+                                      icon: const Icon(
+                                        Icons.menu,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(13),
+                                    ),
+                                    child: const Icon(
+                                      Icons.local_library_outlined,
+                                      color: navy,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'MARC AI',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                        Text(
+                                          tr(
+                                            ar,
+                                            'AI Cataloguing Assistant',
+                                            'مساعد الفهرسة الذكي',
+                                          ),
+                                          style: const TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (desktop) ...[
+                                    _TopNav(
+                                      label: tr(ar, 'Home', 'الرئيسية'),
+                                      onTap: () => scrollTo(homeKey),
+                                    ),
+                                    _TopNav(
+                                      label: tr(ar, 'About', 'من نحن'),
+                                      onTap: () => scrollTo(aboutKey),
+                                    ),
+                                    _TopNav(
+                                      label: tr(ar, 'Features', 'المزايا'),
+                                      onTap: () => scrollTo(featuresKey),
+                                    ),
+                                    _TopNav(
+                                      label:
+                                          tr(ar, 'How It Works', 'كيف يعمل'),
+                                      onTap: () => scrollTo(howKey),
+                                    ),
+                                    _TopNav(
+                                      label: tr(ar, 'Pricing', 'الأسعار'),
+                                      onTap: () => scrollTo(pricingKey),
+                                    ),
+                                    _TopNav(
+                                      label:
+                                          tr(ar, 'FAQ', 'الأسئلة الشائعة'),
+                                      onTap: () => scrollTo(faqKey),
+                                    ),
+                                  ],
+                                  IconButton(
+                                    tooltip: tr(ar, 'Language', 'اللغة'),
+                                    onPressed: () {
+                                      appArabic.value = !appArabic.value;
+                                    },
+                                    icon: const Icon(
+                                      Icons.language,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  if (desktop)
+                                   OutlinedButton(
+onPressed: () async {
+  if (_currentUser == null) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const AuthPage(),
+      ),
+    );
+  } else {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const AccountPage(),
+      ),
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _currentUser = Supabase.instance.client.auth.currentUser;
+    });
+  }
+},
+  style: OutlinedButton.styleFrom(
+    foregroundColor: Colors.white,
+    side: const BorderSide(
+      color: Colors.white38,
+    ),
+  ),
+child: Text(
+  _currentUser != null
+      ? tr(ar, 'Account', 'الحساب')
+      : tr(ar, 'Sign In', 'تسجيل الدخول'),
+),
+),
+                                  const SizedBox(width: 8),
+                                  FilledButton(
+                                    onPressed: () async {
+  if (_currentUser == null) {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const AuthPage(),
+      ),
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _currentUser = Supabase.instance.client.auth.currentUser;
+    });
+
+    return;
+  }
+
+  launchApp();
+},
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: navy,
+                                    ),
+                                    child:
+                                        Text(tr(ar, 'Launch App', 'تشغيل التطبيق')),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                vertical: desktop ? 90 : 55,
+                              ),
+                              child: ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(maxWidth: 1250),
+                                child: desktop
+                                    ? Row(
+                                        children: [
+                                          Expanded(
+                                            flex: 6,
+                                            child: _HeroText(
+                                              ar: ar,
+                                              launchApp: launchApp,
+                                              how: () => scrollTo(howKey),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 60),
+                                          const Expanded(
+                                            flex: 5,
+                                            child: _HeroDemo(),
+                                          ),
+                                        ],
+                                      )
+                                    : Column(
+                                        children: [
+                                          _HeroText(
+                                            ar: ar,
+                                            launchApp: launchApp,
+                                            how: () => scrollTo(howKey),
+                                          ),
+                                          const SizedBox(height: 40),
+                                          const _HeroDemo(),
+                                        ],
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // TRUST
+                  Container(
+                    width: double.infinity,
+                    color: const Color(0xFFF7F9FC),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 28,
+                    ),
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 30,
+                      runSpacing: 18,
+                      children: [
+                        _Trust(
+                          Icons.language,
+                          tr(ar, 'Arabic + English', 'العربية + الإنجليزية'),
+                        ),
+                        _Trust(
+                          Icons.fact_check_outlined,
+                          tr(ar, 'Librarian Approval', 'اعتماد أمين المكتبة'),
+                        ),
+                        _Trust(
+                          Icons.picture_as_pdf_outlined,
+                          tr(ar, 'Images + PDF', 'الصور + PDF'),
+                        ),
+                        _Trust(
+                          Icons.devices_outlined,
+                          tr(ar, 'Desktop + Mobile', 'الكمبيوتر + الهاتف'),
+                        ),
+                        const _Trust(Icons.dataset_outlined, 'MARC 21'),
+                      ],
+                    ),
+                  ),
+
+                  // ABOUT
+                  Container(
+                    key: aboutKey,
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: desktop ? 60 : 20,
+                      vertical: 95,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1150),
+                        child: Column(
+                          children: [
+                            titleBlock(
+                              ar,
+                              'About the Platform',
+                              'عن المنصة',
+                              'Built to Assist Professional Cataloguers',
+                              'مصمم لمساندة المفهرسين المتخصصين',
+                              'Library cataloguing requires careful bibliographic examination. MARC AI Assistant reduces repetitive data-entry effort while preserving professional review, correction and approval.',
+                              'تتطلب فهرسة المكتبات فحصاً ببليوجرافياً دقيقاً. يساعد MARC AI في تقليل أعمال الإدخال المتكررة مع الحفاظ على المراجعة والتصحيح والاعتماد المهني.',
+                            ),
+                            const SizedBox(height: 55),
+                            LayoutBuilder(
+                              builder: (context, c) {
+                                final cols = c.maxWidth > 850 ? 3 : 1;
+                                return GridView.count(
+                                  crossAxisCount: cols,
+                                  shrinkWrap: true,
+                                  physics:
+                                      const NeverScrollableScrollPhysics(),
+                                  crossAxisSpacing: 18,
+                                  mainAxisSpacing: 18,
+                                  childAspectRatio: cols == 3 ? 1.18 : 2.2,
+                                  children: [
+                                    infoCard(
+                                      ar,
+                                      Icons.speed_outlined,
+                                      'Faster Workflow',
+                                      'سير عمل أسرع',
+                                      'AI prepares the first structured MARC draft and reduces repetitive transcription.',
+                                      'يُعد الذكاء الاصطناعي المسودة الأولى لتسجيلة MARC ويقلل الإدخال اليدوي المتكرر.',
+                                    ),
+                                    infoCard(
+                                      ar,
+                                      Icons.person_search_outlined,
+                                      'Human in Control',
+                                      'الإنسان في التحكم',
+                                      'The librarian reviews, corrects and approves the final record before export.',
+                                      'يقوم أمين المكتبة بمراجعة وتصحيح واعتماد التسجيلة النهائية قبل التصدير.',
+                                    ),
+                                    infoCard(
+                                      ar,
+                                      Icons.translate,
+                                      'Bilingual by Design',
+                                      'ثنائي اللغة',
+                                      'Built for Arabic and English cataloguing environments.',
+                                      'مصمم لبيئات الفهرسة باللغة العربية والإنجليزية.',
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // FEATURES
+                  Container(
+                    key: featuresKey,
+                    width: double.infinity,
+                    color: const Color(0xFFF6F8FC),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: desktop ? 60 : 20,
+                      vertical: 95,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1150),
+                        child: Column(
+                          children: [
+                            titleBlock(
+                              ar,
+                              'Powerful Features',
+                              'مزايا قوية',
+                              'Everything Needed for AI-Assisted MARC Cataloguing',
+                              'كل ما تحتاجه لفهرسة MARC بمساعدة الذكاء الاصطناعي',
+                              'Version 1.0 combines AI analysis with professional librarian review in one responsive workflow.',
+                              'يجمع الإصدار 1.0 بين تحليل الذكاء الاصطناعي والمراجعة المهنية لأمين المكتبة ضمن سير عمل متجاوب.',
+                            ),
+                            const SizedBox(height: 55),
+                            LayoutBuilder(
+                              builder: (context, c) {
+                                final cols = c.maxWidth > 900
+                                    ? 3
+                                    : c.maxWidth > 600
+                                        ? 2
+                                        : 1;
+                                return GridView.count(
+                                  crossAxisCount: cols,
+                                  shrinkWrap: true,
+                                  physics:
+                                      const NeverScrollableScrollPhysics(),
+                                  crossAxisSpacing: 18,
+                                  mainAxisSpacing: 18,
+                                  childAspectRatio: cols == 3 ? 1.1 : 1.35,
+                                  children: [
+                                    infoCard(
+                                      ar,
+                                      Icons.auto_awesome,
+                                      'AI MARC Generation',
+                                      'إنشاء MARC بالذكاء الاصطناعي',
+                                      'Generate structured MARC 21 drafts from bibliographic evidence.',
+                                      'إنشاء مسودات MARC 21 منظمة من الأدلة الببليوجرافية.',
+                                    ),
+                                    infoCard(
+                                      ar,
+                                      Icons.collections_outlined,
+                                      'Multiple Page Analysis',
+                                      'تحليل صفحات متعددة',
+                                      'Combine title pages, copyright pages, contents, images and PDFs.',
+                                      'دمج صفحة العنوان وصفحة الحقوق والمحتويات والصور وملفات PDF.',
+                                    ),
+                                    infoCard(
+                                      ar,
+                                      Icons.edit_note_outlined,
+                                      'Review & Edit',
+                                      'مراجعة وتعديل',
+                                      'Every AI-generated field remains editable before approval.',
+                                      'يمكن تعديل كل حقل أنشأه الذكاء الاصطناعي قبل الاعتماد.',
+                                    ),
+                                    infoCard(
+                                      ar,
+                                      Icons.add_card_outlined,
+                                      'Custom MARC Fields',
+                                      'حقول MARC إضافية',
+                                      'Add local or additional MARC fields when required.',
+                                      'إضافة حقول MARC محلية أو إضافية عند الحاجة.',
+                                    ),
+                                    infoCard(
+                                      ar,
+                                      Icons.shopping_cart_checkout,
+                                      'Master MARC Cart',
+                                      'سلة MARC الرئيسية',
+                                      'Collect multiple approved records for one batch export.',
+                                      'تجميع تسجيلات متعددة معتمدة للتصدير في دفعة واحدة.',
+                                    ),
+                                    infoCard(
+                                      ar,
+                                      Icons.download_outlined,
+                                      'Batch Excel Export',
+                                      'تصدير Excel دفعة واحدة',
+                                      'Download approved records in a structured workbook.',
+                                      'تنزيل التسجيلات المعتمدة في ملف Excel منظم.',
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // HOW
+                  Container(
+                    key: howKey,
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: desktop ? 60 : 20,
+                      vertical: 95,
+                    ),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(0xFFEAF0FF),
+                          Color(0xFFF8FAFF),
+                        ],
+                      ),
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1150),
+                        child: Column(
+                          children: [
+                            titleBlock(
+                              ar,
+                              'How It Works',
+                              'كيف يعمل',
+                              'From Book Pages to Approved MARC',
+                              'من صفحات الكتاب إلى تسجيلة MARC معتمدة',
+                              'A simple workflow keeps AI speed and professional librarian judgement working together.',
+                              'سير عمل بسيط يجمع بين سرعة الذكاء الاصطناعي والحكم المهني لأمين المكتبة.',
+                            ),
+                            const SizedBox(height: 50),
+                            LayoutBuilder(
+                              builder: (context, c) {
+                                final cols = c.maxWidth > 900
+                                    ? 5
+                                    : c.maxWidth > 600
+                                        ? 2
+                                        : 1;
+                                final steps = [
+                                  (
+                                    '01',
+                                    Icons.cloud_upload_outlined,
+                                    'Upload',
+                                    'رفع الملفات',
+                                    'Take photos or upload images and PDFs.',
+                                    'التقط الصور أو ارفع الصور وملفات PDF.'
+                                  ),
+                                  (
+                                    '02',
+                                    Icons.psychology_outlined,
+                                    'AI Analyse',
+                                    'تحليل AI',
+                                    'AI examines bibliographic evidence.',
+                                    'يحلل الذكاء الاصطناعي الأدلة الببليوجرافية.'
+                                  ),
+                                  (
+                                    '03',
+                                    Icons.dataset_outlined,
+                                    'Generate MARC',
+                                    'إنشاء MARC',
+                                    'A structured MARC 21 draft is prepared.',
+                                    'يتم إعداد مسودة MARC 21 منظمة.'
+                                  ),
+                                  (
+                                    '04',
+                                    Icons.fact_check_outlined,
+                                    'Review',
+                                    'المراجعة',
+                                    'The librarian edits and approves the record.',
+                                    'يقوم أمين المكتبة بالتعديل والاعتماد.'
+                                  ),
+                                  (
+                                    '05',
+                                    Icons.download_done_outlined,
+                                    'Export',
+                                    'التصدير',
+                                    'Approved records enter the cart and export.',
+                                    'تدخل التسجيلات المعتمدة إلى السلة ثم يتم تصديرها.'
+                                  ),
+                                ];
+                                return GridView.count(
+                                  crossAxisCount: cols,
+                                  shrinkWrap: true,
+                                  physics:
+                                      const NeverScrollableScrollPhysics(),
+                                  crossAxisSpacing: 14,
+                                  mainAxisSpacing: 14,
+                                  childAspectRatio: cols == 5 ? .78 : 1.3,
+                                  children: [
+                                    for (final s in steps)
+                                      _StepCard(
+                                        number: s.$1,
+                                        icon: s.$2,
+                                        title: tr(ar, s.$3, s.$4),
+                                        text: tr(ar, s.$5, s.$6),
+                                      ),
+                                  ],
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 40),
+                            FilledButton.icon(
+                              onPressed: launchApp,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: navy,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 28,
+                                  vertical: 18,
+                                ),
+                              ),
+                              icon: const Icon(Icons.rocket_launch_outlined),
+                              label: Text(
+                                tr(
+                                  ar,
+                                  'Launch MARC Assistant',
+                                  'تشغيل مساعد MARC',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // PRICING
+                  Container(
+                    key: pricingKey,
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: desktop ? 60 : 20,
+                      vertical: 95,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1100),
+                        child: Column(
+                          children: [
+                            titleBlock(
+                              ar,
+                              'Flexible Credits',
+                              'رصيد مرن',
+                              'Pay for the Cataloguing You Need',
+                              'ادفع مقابل الفهرسة التي تحتاجها',
+                              'Version 1.0 will introduce secure user accounts and MARC credits. Final prices will be confirmed after real AI usage-cost measurement.',
+                              'سيقدم الإصدار 1.0 حسابات مستخدمين آمنة ورصيد MARC. سيتم اعتماد الأسعار النهائية بعد قياس تكلفة الاستخدام الفعلية للذكاء الاصطناعي.',
+                            ),
+                            const SizedBox(height: 55),
+                            LayoutBuilder(
+                              builder: (context, c) {
+                                final cols = c.maxWidth > 850
+                                    ? 4
+                                    : c.maxWidth > 550
+                                        ? 2
+                                        : 1;
+                                return GridView.count(
+                                  crossAxisCount: cols,
+                                  shrinkWrap: true,
+                                  physics:
+                                      const NeverScrollableScrollPhysics(),
+                                  crossAxisSpacing: 16,
+                                  mainAxisSpacing: 16,
+                                  childAspectRatio: cols == 4 ? .72 : 1.05,
+                                  children: [
+                                    priceCard(
+                                      ar,
+                                      tr(ar, 'Free Trial', 'تجربة مجانية'),
+                                      tr(
+                                        ar,
+                                        '3 MARC records',
+                                        '3 تسجيلات MARC',
+                                      ),
+                                      'AED 0',
+                                    ),
+                                    priceCard(
+                                      ar,
+                                      tr(ar, 'Starter', 'البداية'),
+                                      tr(
+                                        ar,
+                                        '50 MARC credits',
+                                        '50 رصيد MARC',
+                                      ),
+                                      'Coming Soon',
+                                    ),
+                                    priceCard(
+                                      ar,
+                                      tr(ar, 'Professional', 'احترافي'),
+                                      tr(
+                                        ar,
+                                        '200 MARC credits',
+                                        '200 رصيد MARC',
+                                      ),
+                                      'Coming Soon',
+                                      featured: true,
+                                    ),
+                                    priceCard(
+                                      ar,
+                                      tr(ar, 'Library', 'المكتبة'),
+                                      tr(
+                                        ar,
+                                        'Institutional credits',
+                                        'رصيد للمؤسسات',
+                                      ),
+                                      tr(ar, 'Contact Us', 'تواصل معنا'),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // FAQ
+                  Container(
+                    key: faqKey,
+                    width: double.infinity,
+                    color: const Color(0xFFF6F8FC),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: desktop ? 60 : 20,
+                      vertical: 95,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 900),
+                        child: Column(
+                          children: [
+                            titleBlock(
+                              ar,
+                              'FAQ',
+                              'الأسئلة الشائعة',
+                              'Questions Librarians May Ask',
+                              'أسئلة قد يطرحها أمناء المكتبات',
+                              'The platform is designed as an AI assistant with librarian review at the centre of the workflow.',
+                              'تم تصميم المنصة كمساعد ذكي مع جعل مراجعة أمين المكتبة محور سير العمل.',
+                            ),
+                            const SizedBox(height: 38),
+                            _Faq(
+                              title: tr(
+                                ar,
+                                'Does AI replace the librarian?',
+                                'هل يحل الذكاء الاصطناعي محل أمين المكتبة؟',
+                              ),
+                              text: tr(
+                                ar,
+                                'No. AI prepares a draft. The librarian reviews, edits and approves the final MARC record.',
+                                'لا. يقوم الذكاء الاصطناعي بإعداد المسودة، بينما يراجع أمين المكتبة التسجيلة ويعدلها ويعتمدها.',
+                              ),
+                            ),
+                            _Faq(
+                              title: tr(
+                                ar,
+                                'Can I upload multiple pages for one book?',
+                                'هل يمكن رفع عدة صفحات لكتاب واحد؟',
+                              ),
+                              text: tr(
+                                ar,
+                                'Yes. Title pages, copyright pages, contents, images and PDFs can be combined before MARC generation.',
+                                'نعم. يمكن دمج صفحة العنوان وصفحة الحقوق والمحتويات والصور وملفات PDF قبل إنشاء MARC.',
+                              ),
+                            ),
+                            _Faq(
+                              title: tr(
+                                ar,
+                                'Does it support Arabic?',
+                                'هل يدعم اللغة العربية؟',
+                              ),
+                              text: tr(
+                                ar,
+                                'Yes. The interface and cataloguing workflow support both Arabic and English.',
+                                'نعم. تدعم الواجهة وسير عمل الفهرسة اللغتين العربية والإنجليزية.',
+                              ),
+                            ),
+                            _Faq(
+                              title: tr(
+                                ar,
+                                'Can records be exported?',
+                                'هل يمكن تصدير التسجيلات؟',
+                              ),
+                              text: tr(
+                                ar,
+                                'Version 1.0 provides reviewed batch export to Excel. Native MARC and LMS integrations are planned for later versions.',
+                                'يوفر الإصدار 1.0 تصدير التسجيلات المعتمدة إلى Excel، بينما تم التخطيط لتصدير MARC والتكامل مع أنظمة المكتبات في الإصدارات اللاحقة.',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // CTA
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 80,
+                    ),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(0xFF071A33),
+                          Color(0xFF173E68),
+                        ],
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          tr(
+                            ar,
+                            'Ready to Modernise Your Cataloguing Workflow?',
+                            'هل أنت مستعد لتحديث سير عمل الفهرسة؟',
+                          ),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 34,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          tr(
+                            ar,
+                            'Experience AI-assisted MARC cataloguing while keeping professional librarians in control.',
+                            'اكتشف فهرسة MARC بمساعدة الذكاء الاصطناعي مع إبقاء التحكم المهني بيد أمناء المكتبات.',
+                          ),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 17,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        FilledButton.icon(
+                          onPressed: launchApp,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: navy,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 26,
+                              vertical: 18,
+                            ),
+                          ),
+                          icon: const Icon(Icons.rocket_launch_outlined),
+                          label: Text(
+                            tr(ar, 'Launch Version 1.0', 'تشغيل الإصدار 1.0'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // FOOTER
+                  Container(
+                    width: double.infinity,
+                    color: const Color(0xFF041122),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 32,
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'MARC AI Assistant',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Text(
+                          tr(
+                            ar,
+                            'AI-Assisted MARC 21 Cataloguing',
+                            'فهرسة MARC 21 بمساعدة الذكاء الاصطناعي',
+                          ),
+                          style: const TextStyle(color: Colors.white54),
+                        ),
+                        const SizedBox(height: 18),
+                        const Text(
+                          'Version 1.0',
+                          style: TextStyle(color: Colors.white38),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         );
       },
     );
   }
 }
 
+class _TopNav extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _TopNav({required this.label, required this.onTap});
 
-// ============================================================
-// LANGUAGE BUTTON
-// ============================================================
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onTap,
+      child: Text(label, style: const TextStyle(color: Colors.white)),
+    );
+  }
+}
 
-class LanguageButton
-    extends StatelessWidget {
+class _DrawerNav extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _DrawerNav({required this.label, required this.onTap});
 
-  final bool isArabic;
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(title: Text(label), onTap: onTap);
+  }
+}
 
-  const LanguageButton({
-    super.key,
-    required this.isArabic,
+class _HeroText extends StatelessWidget {
+  final bool ar;
+  final VoidCallback launchApp;
+  final VoidCallback how;
+  const _HeroText({
+    required this.ar,
+    required this.launchApp,
+    required this.how,
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Padding(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 6,
-      ),
-      child: TextButton.icon(
-        onPressed: () {
-          appArabic.value =
-              !appArabic.value;
-        },
-        icon:
-            const Icon(
-          Icons.language,
+  Widget build(BuildContext context) {
+    final desktop = MediaQuery.sizeOf(context).width > 1000;
+    return Column(
+      crossAxisAlignment:
+          desktop ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(.10),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: Colors.white24),
+          ),
+          child: Text(
+            tr(
+              ar,
+              'VERSION 1.0 • AI FOR LIBRARIES',
+              'الإصدار 1.0 • الذكاء الاصطناعي للمكتبات',
+            ),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ),
-        label:
-            Text(
-          isArabic
-              ? 'English'
-              : 'العربية',
+        const SizedBox(height: 22),
+        Text(
+          tr(
+            ar,
+            'AI-Powered MARC 21 Cataloguing for Modern Libraries',
+            'فهرسة MARC 21 بالذكاء الاصطناعي للمكتبات الحديثة',
+          ),
+          textAlign: desktop ? TextAlign.start : TextAlign.center,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: desktop ? 58 : 38,
+            height: 1.08,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 22),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 700),
+          child: Text(
+            tr(
+              ar,
+              'Transform book pages, PDFs, theses and dissertations into structured MARC 21 records. AI accelerates the work while professional librarians remain in control of review and approval.',
+              'حوّل صفحات الكتب وملفات PDF والرسائل والأطروحات إلى تسجيلات MARC 21 منظمة. يسرّع الذكاء الاصطناعي العمل مع بقاء المراجعة والاعتماد بيد أمين المكتبة المتخصص.',
+            ),
+            textAlign: desktop ? TextAlign.start : TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 18,
+              height: 1.7,
+            ),
+          ),
+        ),
+        const SizedBox(height: 30),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          alignment: desktop ? WrapAlignment.start : WrapAlignment.center,
+          children: [
+            FilledButton.icon(
+              onPressed: launchApp,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: _LandingPageState.navy,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+              ),
+              icon: const Icon(Icons.rocket_launch_outlined),
+              label: Text(tr(ar, 'Try MARC Assistant', 'جرّب مساعد MARC')),
+            ),
+            OutlinedButton.icon(
+              onPressed: how,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white54),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+              ),
+              icon: const Icon(Icons.play_circle_outline),
+              label: Text(tr(ar, 'See How It Works', 'شاهد كيف يعمل')),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _HeroDemo extends StatelessWidget {
+  const _HeroDemo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 520),
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(.10),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+        ),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _DemoHeader(),
+            SizedBox(height: 22),
+            _MarcLine('100', r'1# $a Abdullah, Yameen.'),
+            _MarcLine(
+              '245',
+              r'10 $a Artificial intelligence in libraries / $c Yameen Abdullah.',
+            ),
+            _MarcLine(
+              '264',
+              r'#1 $a Dubai : $b Library AI Press, $c 2026.',
+            ),
+            _MarcLine(
+              '300',
+              r'## $a 245 pages : $b illustrations ; $c 24 cm.',
+            ),
+            _MarcLine(
+              '650',
+              r'#4 $a Artificial intelligence $x Library applications.',
+            ),
+            SizedBox(height: 10),
+            _Approved(),
+          ],
         ),
       ),
     );
   }
 }
 
-
-// ============================================================
-// REVIEW RESULT
-// ============================================================
-
-class ReviewResult {
-
-  final Map<String, dynamic>
-      record;
-
-  final bool approved;
-
-  ReviewResult({
-    required this.record,
-    required this.approved,
-  });
+class _DemoHeader extends StatelessWidget {
+  const _DemoHeader();
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const _Dot(Color(0xFFFF6B6B)),
+        const SizedBox(width: 7),
+        const _Dot(Color(0xFFFFCC5C)),
+        const SizedBox(width: 7),
+        const _Dot(Color(0xFF45D483)),
+        const Spacer(),
+        Text(
+          'MARC AI',
+          style: TextStyle(
+            color: _LandingPageState.navy,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
+class _Dot extends StatelessWidget {
+  final Color color;
+  const _Dot(this.color);
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      );
+}
+
+class _MarcLine extends StatelessWidget {
+  final String tag;
+  final String text;
+  const _MarcLine(this.tag, this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F7FB),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE4EBFF),
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Text(
+              tag,
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF345EDB),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.45,
+                color: Color(0xFF26384E),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Approved extends StatelessWidget {
+  const _Approved();
+  @override
+  Widget build(BuildContext context) {
+    final ar = appArabic.value;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF8F0),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.verified_outlined, color: Color(0xFF14804A)),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              tr(
+                ar,
+                'Librarian reviewed & approved',
+                'تمت المراجعة والاعتماد بواسطة أمين المكتبة',
+              ),
+              style: const TextStyle(
+                color: Color(0xFF14804A),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Trust extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _Trust(this.icon, this.text);
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: _LandingPageState.accent),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Color(0xFF26384E),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      );
+}
+
+class _Check extends StatelessWidget {
+  final String text;
+  final bool featured;
+  const _Check({required this.text, required this.featured});
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          Icon(
+            Icons.check_circle,
+            size: 20,
+            color: featured ? Colors.white : _LandingPageState.accent,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color:
+                    featured ? Colors.white : _LandingPageState.navy,
+              ),
+            ),
+          ),
+        ],
+      );
+}
+
+class _StepCard extends StatelessWidget {
+  final String number;
+  final IconData icon;
+  final String title;
+  final String text;
+
+  const _StepCard({
+    required this.number,
+    required this.icon,
+    required this.title,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE4E9F1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF0FF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: _LandingPageState.accent),
+              ),
+              const Spacer(),
+              Text(
+                number,
+                style: TextStyle(
+                  color: _LandingPageState.navy.withOpacity(.15),
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: const TextStyle(
+              color: _LandingPageState.navy,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            text,
+            style: TextStyle(color: Colors.grey.shade700, height: 1.5),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Faq extends StatelessWidget {
+  final String title;
+  final String text;
+  const _Faq({required this.title, required this.text});
+
+  @override
+  Widget build(BuildContext context) => Card(
+        elevation: 0,
+        margin: const EdgeInsets.only(bottom: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFFE4E9F1)),
+        ),
+        child: ExpansionTile(
+          title: Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFF071A33),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: Colors.grey.shade700,
+                  height: 1.6,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+}
 
 // ============================================================
-// CUSTOM MARC FIELD
+// SHARED TYPES
 // ============================================================
+
+class LanguageButton extends StatelessWidget {
+  final bool isArabic;
+  const LanguageButton({
+    super.key,
+    required this.isArabic,
+  });
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: TextButton.icon(
+          onPressed: () => appArabic.value = !appArabic.value,
+          icon: const Icon(Icons.language),
+          label: Text(isArabic ? 'English' : 'العربية'),
+        ),
+      );
+}
+
+class ReviewResult {
+  final Map<String, dynamic> record;
+  final bool approved;
+  ReviewResult({required this.record, required this.approved});
+}
 
 class CustomMarcField {
-
   String tag;
-
   String indicators;
-
   String value;
 
   CustomMarcField({
@@ -184,1169 +1865,410 @@ class CustomMarcField {
     required this.value,
   });
 
-  Map<String, dynamic>
-      toJson() {
-    return {
-      'tag': tag,
-      'indicators':
-          indicators,
-      'value': value,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'tag': tag,
+        'indicators': indicators,
+        'value': value,
+      };
 
-  factory CustomMarcField.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory CustomMarcField.fromJson(Map<String, dynamic> json) {
     return CustomMarcField(
-      tag:
-          json['tag']
-                  ?.toString() ??
-              '',
-      indicators:
-          json['indicators']
-                  ?.toString() ??
-              '##',
-      value:
-          json['value']
-                  ?.toString() ??
-              '',
+      tag: json['tag']?.toString() ?? '',
+      indicators: json['indicators']?.toString() ?? '##',
+      value: json['value']?.toString() ?? '',
     );
   }
 }
 
-
 // ============================================================
-// HOME PAGE
+// MARC APP HOME
 // ============================================================
 
-class HomePage
-    extends StatefulWidget {
-
-  const HomePage({
-    super.key,
-  });
-
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
   @override
-  State<HomePage>
-      createState() =>
-          _HomePageState();
+  State<HomePage> createState() => _HomePageState();
 }
 
+class _HomePageState extends State<HomePage> {
+  static const backendBaseUrl = 'https://dpa-marc-api.onrender.com';
 
-class _HomePageState
-    extends State<HomePage> {
-
-  // ==========================================================
-  // PUBLIC RENDER BACKEND
-  // ==========================================================
-
-  static const String
-      backendBaseUrl =
-      'https://dpa-marc-api.onrender.com';
-
-
-  // ==========================================================
-  // DATA
-  // ==========================================================
-
-  final List<PlatformFile>
-      selectedFiles = [];
-
-  Map<String, dynamic>?
-      marcRecord;
-
-  final List<
-          Map<String, dynamic>>
-      marcCart = [];
+  final List<PlatformFile> selectedFiles = [];
+  Map<String, dynamic>? marcRecord;
+  final List<Map<String, dynamic>> marcCart = [];
 
   bool isAnalyzing = false;
-
   bool isReviewed = false;
+  String statusEnglish = 'Ready to catalogue a new item.';
+  String statusArabic = 'جاهز لفهرسة مادة جديدة.';
 
-
-  String statusEnglish =
-      'Ready to catalogue a new item.';
-
-  String statusArabic =
-      'جاهز لفهرسة مادة جديدة.';
-
-
-  // ==========================================================
-  // STATUS
-  // ==========================================================
-
-  void setStatus(
-    String en,
-    String ar,
-  ) {
+  void setStatus(String en, String ar) {
     setState(() {
       statusEnglish = en;
       statusArabic = ar;
     });
   }
 
-
-  // ==========================================================
-  // PICK / ADD MULTIPLE FILES
-  //
-  // IMPORTANT MOBILE FIX:
-  // New camera/photo selections are APPENDED.
-  // They do not replace existing files.
-  // ==========================================================
-
-  Future<void> pickFiles(
-    bool isArabic,
-  ) async {
-
+  Future<void> pickFiles(bool ar) async {
     try {
-
-      final result =
-          await FilePicker.platform
-              .pickFiles(
-
+      final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
-
-        type:
-            FileType.custom,
-
-        allowedExtensions: [
-          'jpg',
-          'jpeg',
-          'png',
-          'webp',
-          'pdf',
-        ],
-
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
         withData: true,
       );
 
-
-      if (
-        result == null ||
-        result.files.isEmpty
-      ) {
-        return;
-      }
-
+      if (result == null || result.files.isEmpty) return;
 
       setState(() {
-
-        // ====================================================
-        // MOBILE CAMERA FIX
-        //
-        // OLD:
-        // selectedFiles = result.files;
-        //
-        // NEW:
-        // Append each new selection.
-        // ====================================================
-
-        selectedFiles.addAll(
-          result.files,
-        );
-
+        selectedFiles.addAll(result.files);
         marcRecord = null;
-
         isReviewed = false;
-
-
         statusEnglish =
             '${selectedFiles.length} file(s) selected for one bibliographic item. You can add more files before generating MARC.';
-
         statusArabic =
             'تم اختيار ${selectedFiles.length} ملف/ملفات لمادة ببليوجرافية واحدة. يمكنك إضافة المزيد قبل إنشاء MARC.';
       });
-
-    } catch (error) {
-
+    } catch (e) {
       setStatus(
-        'File selection error: $error',
-        'خطأ في اختيار الملفات: $error',
+        'File selection error: $e',
+        'خطأ في اختيار الملفات: $e',
       );
     }
   }
 
-
-  // ==========================================================
-  // REMOVE ONE FILE
-  // ==========================================================
-
-  void removeFile(
-    int index,
-  ) {
-
+  void removeFile(int index) {
     setState(() {
-
-      selectedFiles
-          .removeAt(index);
-
+      selectedFiles.removeAt(index);
       marcRecord = null;
-
       isReviewed = false;
-
-
-      if (
-        selectedFiles.isEmpty
-      ) {
-
-        statusEnglish =
-            'No files selected.';
-
-        statusArabic =
-            'لم يتم اختيار أي ملفات.';
-
+      if (selectedFiles.isEmpty) {
+        statusEnglish = 'No files selected.';
+        statusArabic = 'لم يتم اختيار أي ملفات.';
       } else {
-
-        statusEnglish =
-            '${selectedFiles.length} file(s) selected.';
-
-        statusArabic =
-            'تم اختيار ${selectedFiles.length} ملف/ملفات.';
+        statusEnglish = '${selectedFiles.length} file(s) selected.';
+        statusArabic = 'تم اختيار ${selectedFiles.length} ملف/ملفات.';
       }
     });
   }
 
-
-  // ==========================================================
-  // CLEAR FILES
-  // ==========================================================
-
   void clearFiles() {
-
     setState(() {
-
       selectedFiles.clear();
-
       marcRecord = null;
-
       isReviewed = false;
-
-      statusEnglish =
-          'Files cleared. Ready for a new item.';
-
-      statusArabic =
-          'تم مسح الملفات. جاهز لمادة جديدة.';
+      statusEnglish = 'Files cleared. Ready for a new item.';
+      statusArabic = 'تم مسح الملفات. جاهز لمادة جديدة.';
     });
   }
 
-
-  // ==========================================================
-  // GENERATE MARC
-  // ==========================================================
-
-  Future<void>
-      generateMarcRecord(
-    bool isArabic,
-  ) async {
-
-    if (
-      selectedFiles.isEmpty
-    ) {
-
+  Future<void> generateMarcRecord(bool ar) async {
+    if (selectedFiles.isEmpty) {
       showMessage(
         tr(
-          isArabic,
+          ar,
           'Please upload one or more bibliographic files first.',
           'يرجى رفع ملف ببليوجرافي واحد أو أكثر أولاً.',
         ),
       );
-
       return;
     }
 
-
-    if (
-      selectedFiles.any(
-        (file) =>
-            file.bytes == null,
-      )
-    ) {
-
+    if (selectedFiles.any((f) => f.bytes == null)) {
       showMessage(
         tr(
-          isArabic,
+          ar,
           'Unable to read one or more selected files.',
           'تعذر قراءة ملف واحد أو أكثر من الملفات المحددة.',
         ),
       );
-
       return;
     }
 
-
     setState(() {
-
       isAnalyzing = true;
-
       isReviewed = false;
-
       statusEnglish =
           'AI is analysing ${selectedFiles.length} supplied file(s)...';
-
       statusArabic =
           'يقوم الذكاء الاصطناعي بتحليل ${selectedFiles.length} ملف/ملفات...';
     });
 
-
     try {
-
-      final request =
-          http.MultipartRequest(
-
+      final request = http.MultipartRequest(
         'POST',
-
-        Uri.parse(
-          '$backendBaseUrl/marc/analyze',
-        ),
+        Uri.parse('$backendBaseUrl/marc/analyze'),
       );
 
-
-      for (
-        final file
-        in selectedFiles
-      ) {
-
+      for (final f in selectedFiles) {
         request.files.add(
-
-          http.MultipartFile
-              .fromBytes(
-
+          http.MultipartFile.fromBytes(
             'files',
-
-            file.bytes!,
-
-            filename:
-                file.name,
+            f.bytes!,
+            filename: f.name,
           ),
         );
       }
 
-
-      final streamedResponse =
-          await request.send();
-
-
-      final responseBody =
-          await streamedResponse
-              .stream
-              .bytesToString();
-
+      final response = await request.send();
+      final body = await response.stream.bytesToString();
 
       dynamic decoded;
-
       try {
-        decoded =
-            jsonDecode(
-          responseBody,
-        );
+        decoded = jsonDecode(body);
       } catch (_) {
         decoded = null;
       }
 
-
-      if (
-        streamedResponse
-                .statusCode !=
-            200
-      ) {
-
-        final message =
-            decoded is Map
-                ? decoded[
-                            'message']
-                        ?.toString() ??
-                    'Server error.'
-                : 'Server error.';
-
-
-        setStatus(
-          'Server error: $message',
-          'خطأ في الخادم: $message',
-        );
-
-
+      if (response.statusCode != 200) {
+        final message = decoded is Map
+            ? decoded['message']?.toString() ?? 'Server error.'
+            : 'Server error.';
         showMessage(
           tr(
-            isArabic,
+            ar,
             'Unable to generate MARC record: $message',
             'تعذر إنشاء تسجيلة MARC: $message',
           ),
         );
-
         return;
       }
 
-
-      if (
-        decoded is! Map
-      ) {
-
+      if (decoded is! Map) {
         showMessage(
           tr(
-            isArabic,
+            ar,
             'The backend returned an invalid response.',
             'أرجع الخادم استجابة غير صالحة.',
           ),
         );
-
         return;
       }
 
+      final data = Map<String, dynamic>.from(decoded);
+if (data['success'] == true && data['record'] != null) {
+  final record = Map<String, dynamic>.from(data['record'] as Map);
+  record.putIfAbsent('custom_fields', () => []);
 
-      final Map<String, dynamic>
-          data =
-          Map<String, dynamic>
-              .from(
-        decoded,
-      );
+  setState(() {
+    marcRecord = record;
+    statusEnglish =
+        'MARC 21 record generated successfully. Librarian review is required.';
+    statusArabic =
+        'تم إنشاء سجل MARC 21 بنجاح. يلزم مراجعة أمين المكتبة.';
+  });
+  await Supabase.instance.client.rpc('increment_marc_usage');
 
-
-      if (
-        data['success'] ==
-                true &&
-        data['record'] != null
-      ) {
-
-        final receivedRecord =
-            Map<String, dynamic>
-                .from(
-
-          data['record']
-              as Map,
-        );
-
-
-        receivedRecord
-            .putIfAbsent(
-
-          'custom_fields',
-
-          () => [],
-        );
-
-
-        setState(() {
-
-          marcRecord =
-              receivedRecord;
-
-          statusEnglish =
-              'MARC 21 record generated successfully. Librarian review is required.';
-
-          statusArabic =
-              'تم إنشاء تسجيلة MARC 21 بنجاح. يلزم مراجعة أمين المكتبة.';
-        });
-
-
-        showMessage(
-          tr(
-            isArabic,
-            'MARC 21 record generated successfully.',
-            'تم إنشاء تسجيلة MARC 21 بنجاح.',
-          ),
-        );
-
-      } else {
-
+  showMessage(
+    tr(
+      ar,
+      'MARC 21 record generated successfully.',
+      'تم إنشاء سجل MARC 21 بنجاح.',
+    ),
+  );
+} else {
         final message =
-            data['message']
-                    ?.toString() ??
-                'Unable to generate MARC record.';
-
-
-        setStatus(
-          message,
-          'تعذر إنشاء تسجيلة MARC: $message',
-        );
-
-
-        showMessage(
-          isArabic
-              ? 'تعذر إنشاء تسجيلة MARC: $message'
-              : message,
-        );
+            data['message']?.toString() ?? 'Unable to generate MARC record.';
+        setStatus(message, 'تعذر إنشاء تسجيلة MARC: $message');
+        showMessage(ar ? 'تعذر إنشاء تسجيلة MARC: $message' : message);
       }
-
-    } catch (error) {
-
-      setStatus(
-        'Analysis error: $error',
-        'خطأ أثناء التحليل: $error',
-      );
-
-
+    } catch (e) {
+      setStatus('Analysis error: $e', 'خطأ أثناء التحليل: $e');
       showMessage(
-        tr(
-          isArabic,
-          'Analysis error: $error',
-          'حدث خطأ أثناء التحليل: $error',
-        ),
+        tr(ar, 'Analysis error: $e', 'حدث خطأ أثناء التحليل: $e'),
       );
-
     } finally {
-
       if (mounted) {
-
-        setState(() {
-          isAnalyzing =
-              false;
-        });
+        setState(() => isAnalyzing = false);
       }
     }
   }
 
-
-  // ==========================================================
-  // REVIEW MARC
-  // ==========================================================
-
-  Future<void>
-      reviewMarcRecord(
-    bool isArabic,
-  ) async {
-
-    if (
-      marcRecord == null
-    ) {
-
+  Future<void> reviewMarcRecord(bool ar) async {
+    if (marcRecord == null) {
       showMessage(
         tr(
-          isArabic,
+          ar,
           'Generate a MARC record first.',
           'قم بإنشاء تسجيلة MARC أولاً.',
         ),
       );
-
       return;
     }
 
-
-    final result =
-        await Navigator.of(
+    final result = await Navigator.push<ReviewResult>(
       context,
-    ).push<ReviewResult>(
-
       MaterialPageRoute(
-
-        builder:
-            (context) =>
-                MarcReviewPage(
-
-          record:
-              Map<String, dynamic>
-                  .from(
-            marcRecord!,
-          ),
+        builder: (_) => MarcReviewPage(
+          record: Map<String, dynamic>.from(marcRecord!),
         ),
       ),
     );
 
-
-    if (
-      result == null
-    ) {
-      return;
-    }
-
+    if (result == null) return;
 
     setState(() {
-
-      marcRecord =
-          result.record;
-
-      isReviewed =
-          result.approved;
-
-
-      if (
-        result.approved
-      ) {
-
+      marcRecord = result.record;
+      isReviewed = result.approved;
+      if (result.approved) {
         statusEnglish =
             'MARC record reviewed and approved. Ready to add to Master Cart.';
-
         statusArabic =
             'تمت مراجعة واعتماد تسجيلة MARC. جاهزة للإضافة إلى السلة الرئيسية.';
-
       } else {
-
-        statusEnglish =
-            'MARC changes saved. Approval is still required.';
-
-        statusArabic =
-            'تم حفظ تعديلات MARC. ما زال الاعتماد مطلوباً.';
+        statusEnglish = 'MARC changes saved. Approval is still required.';
+        statusArabic = 'تم حفظ تعديلات MARC. ما زال الاعتماد مطلوباً.';
       }
     });
-
-
-    showMessage(
-      result.approved
-          ? tr(
-              isArabic,
-              'MARC record approved.',
-              'تم اعتماد تسجيلة MARC.',
-            )
-          : tr(
-              isArabic,
-              'MARC changes saved.',
-              'تم حفظ تعديلات MARC.',
-            ),
-    );
   }
 
-
-  // ==========================================================
-  // RECORD TITLE
-  // ==========================================================
-
-  String recordTitle(
-    Map<String, dynamic>
-        record,
-  ) {
-
-    String text =
-        record['field_245']
-                ?.toString()
-                .trim() ??
-            '';
-
-
-    if (
-      text.isEmpty
-    ) {
-      return 'Untitled MARC record';
-    }
-
-
-    text =
-        text.replaceFirst(
-
-      RegExp(
-        r'^245\s+\S+\s+',
-      ),
-
-      '',
-    );
-
-
-    text =
-        text.replaceFirst(
-
-      RegExp(
-        r'^\$a\s*',
-      ),
-
-      '',
-    );
-
-
-    final slash =
-        text.indexOf(
-      r'/$c',
-    );
-
-
-    if (
-      slash >= 0
-    ) {
-
-      text =
-          text.substring(
-        0,
-        slash,
-      );
-    }
-
-
-    return text
-        .replaceAll(
-          r'$b',
-          ' ',
-        )
-        .replaceAll(
-          r'$c',
-          ' ',
-        )
-        .trim();
+  String recordTitle(Map<String, dynamic> record) {
+    String t = record['field_245']?.toString().trim() ?? '';
+    if (t.isEmpty) return 'Untitled MARC record';
+    t = t.replaceFirst(RegExp(r'^245\s+\S+\s+'), '');
+    t = t.replaceFirst(RegExp(r'^\$a\s*'), '');
+    final slash = t.indexOf(r'/$c');
+    if (slash >= 0) t = t.substring(0, slash);
+    return t.replaceAll(r'$b', ' ').replaceAll(r'$c', ' ').trim();
   }
 
-
-  // ==========================================================
-  // RECORD AUTHOR
-  // ==========================================================
-
-  String recordAuthor(
-    Map<String, dynamic>
-        record,
-  ) {
-
-    String text =
-        record['field_100']
-                ?.toString()
-                .trim() ??
-            '';
-
-
-    if (
-      text.isEmpty
-    ) {
-      return '';
-    }
-
-
-    text =
-        text.replaceFirst(
-
-      RegExp(
-        r'^100\s+\S+\s+',
-      ),
-
-      '',
-    );
-
-
-    text =
-        text.replaceFirst(
-
-      RegExp(
-        r'^\$a\s*',
-      ),
-
-      '',
-    );
-
-
-    return text.trim();
+  String recordAuthor(Map<String, dynamic> record) {
+    String t = record['field_100']?.toString().trim() ?? '';
+    if (t.isEmpty) return '';
+    t = t.replaceFirst(RegExp(r'^100\s+\S+\s+'), '');
+    t = t.replaceFirst(RegExp(r'^\$a\s*'), '');
+    return t.trim();
   }
 
-
-  // ==========================================================
-  // DUPLICATE KEY
-  // ==========================================================
-
-  String recordKey(
-    Map<String, dynamic>
-        record,
-  ) {
-
-    final isbn =
-        record['field_020'];
-
-
-    if (
-      isbn is List &&
-      isbn.isNotEmpty
-    ) {
-
-      final value =
-          isbn
-              .map(
-                (item) =>
-                    item
-                        .toString(),
-              )
-              .join('|')
-              .trim()
-              .toLowerCase();
-
-
-      if (
-        value.isNotEmpty
-      ) {
-
-        return 'ISBN:$value';
-      }
+  String recordKey(Map<String, dynamic> record) {
+    final isbn = record['field_020'];
+    if (isbn is List && isbn.isNotEmpty) {
+      final v = isbn.map((e) => e.toString()).join('|').trim().toLowerCase();
+      if (v.isNotEmpty) return 'ISBN:$v';
     }
-
-
-    final title =
-        record['field_245']
-                ?.toString()
-                .trim()
-                .toLowerCase() ??
-            '';
-
-
-    final author =
-        record['field_100']
-                ?.toString()
-                .trim()
-                .toLowerCase() ??
-            '';
-
-
-    return (
-      'TA:$title|$author'
-    );
+    return 'TA:${record['field_245']?.toString().trim().toLowerCase() ?? ''}|${record['field_100']?.toString().trim().toLowerCase() ?? ''}';
   }
 
-
-  // ==========================================================
-  // ADD APPROVED RECORD TO CART
-  // ==========================================================
-
-  void addApprovedRecordToCart(
-    bool isArabic,
-  ) {
-
-    if (
-      marcRecord == null
-    ) {
-
+  void addApprovedRecordToCart(bool ar) {
+    if (marcRecord == null || !isReviewed) {
       showMessage(
         tr(
-          isArabic,
-          'Generate a MARC record first.',
-          'قم بإنشاء تسجيلة MARC أولاً.',
-        ),
-      );
-
-      return;
-    }
-
-
-    if (
-      !isReviewed
-    ) {
-
-      showMessage(
-        tr(
-          isArabic,
+          ar,
           'Review and approve the MARC record first.',
           'يرجى مراجعة واعتماد تسجيلة MARC أولاً.',
         ),
       );
-
       return;
     }
 
-
-    final key =
-        recordKey(
-      marcRecord!,
-    );
-
-
-    final duplicate =
-        marcCart.any(
-
-      (record) =>
-          recordKey(
-            record,
-          ) ==
-          key,
-    );
-
-
-    if (
-      duplicate
-    ) {
-
+    final key = recordKey(marcRecord!);
+    if (marcCart.any((r) => recordKey(r) == key)) {
       showMessage(
         tr(
-          isArabic,
+          ar,
           'This record is already in the Master MARC Cart.',
           'هذه التسجيلة موجودة بالفعل في سلة MARC الرئيسية.',
         ),
       );
-
       return;
     }
 
-
-    final copy =
-        Map<String, dynamic>
-            .from(
-      marcRecord!,
-    );
-
-
-    if (
-      copy['custom_fields']
-      is List
-    ) {
-
-      copy['custom_fields'] =
-          List<dynamic>.from(
-        copy['custom_fields'],
-      );
+    final copy = Map<String, dynamic>.from(marcRecord!);
+    if (copy['custom_fields'] is List) {
+      copy['custom_fields'] = List<dynamic>.from(copy['custom_fields']);
     }
 
-
     setState(() {
-
-      marcCart.add(
-        copy,
-      );
-
+      marcCart.add(copy);
       selectedFiles.clear();
-
       marcRecord = null;
-
       isReviewed = false;
-
-
       statusEnglish =
           'Approved record added to Master MARC Cart. Ready for the next item.';
-
       statusArabic =
           'تمت إضافة التسجيلة المعتمدة إلى سلة MARC الرئيسية. جاهز للمادة التالية.';
     });
-
-
-    showMessage(
-      tr(
-        isArabic,
-        'Record added to Master MARC Cart.',
-        'تمت إضافة التسجيلة إلى سلة MARC الرئيسية.',
-      ),
-    );
   }
 
-
-  // ==========================================================
-  // OPEN CART
-  // ==========================================================
-
-  Future<void>
-      openCart() async {
-
-    await Navigator.of(
+  Future<void> openCart() async {
+    await Navigator.push(
       context,
-    ).push(
-
       MaterialPageRoute(
-
-        builder:
-            (context) =>
-                MarcCartPage(
-
-          records:
-              marcCart,
-
-          backendBaseUrl:
-              backendBaseUrl,
-
-          recordTitle:
-              recordTitle,
-
-          recordAuthor:
-              recordAuthor,
-
-          onCartChanged:
-              () {
-
-            if (mounted) {
-              setState(() {});
-            }
+        builder: (_) => MarcCartPage(
+          records: marcCart,
+          backendBaseUrl: backendBaseUrl,
+          recordTitle: recordTitle,
+          recordAuthor: recordAuthor,
+          onCartChanged: () {
+            if (mounted) setState(() {});
           },
         ),
       ),
     );
-
-
-    if (
-      mounted &&
-      marcCart.isEmpty
-    ) {
-
-      setStatus(
-        'Master MARC Cart is empty. Ready for the next batch.',
-        'سلة MARC الرئيسية فارغة. جاهز للدفعة التالية.',
-      );
-    }
   }
 
-
-  // ==========================================================
-  // MESSAGE
-  // ==========================================================
-
-  void showMessage(
-    String message,
-  ) {
-
-    if (!mounted) {
-      return;
-    }
-
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
-
-      SnackBar(
-        content:
-            Text(
-          message,
-        ),
-      ),
+  void showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 
-
-  // ==========================================================
-  // ACTION CARD
-  // ==========================================================
-
-  Widget actionCard({
-
-    required IconData icon,
-
-    required String title,
-
-    required String subtitle,
-
-    required VoidCallback?
-        onTap,
-
+  Widget actionCard(
+    IconData icon,
+    String title,
+    String subtitle,
+    VoidCallback? onTap, {
     bool loading = false,
-
     Widget? trailing,
-
   }) {
-
-    final enabled =
-        onTap != null;
-
-
+    final enabled = onTap != null;
     return Card(
-
-      elevation:
-          enabled ? 2 : 0,
-
-      margin:
-          const EdgeInsets.symmetric(
-        vertical: 8,
-      ),
-
+      elevation: enabled ? 2 : 0,
+      margin: const EdgeInsets.symmetric(vertical: 8),
       child: InkWell(
-
-        borderRadius:
-            BorderRadius.circular(
-          14,
-        ),
-
-        onTap:
-            onTap,
-
+        onTap: onTap,
         child: Padding(
-
-          padding:
-              const EdgeInsets.all(
-            18,
-          ),
-
+          padding: const EdgeInsets.all(18),
           child: Row(
-
             children: [
-
               Container(
-
                 width: 56,
-
                 height: 56,
-
-                decoration:
-                    BoxDecoration(
-
+                decoration: BoxDecoration(
                   color: enabled
-                      ? Theme.of(
-                          context,
-                        )
-                          .colorScheme
-                          .primaryContainer
-                      : Colors
-                          .grey
-                          .shade200,
-
-                  borderRadius:
-                      BorderRadius.circular(
-                    14,
-                  ),
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(14),
                 ),
-
-                child:
-                    loading
-                        ? const Padding(
-                            padding:
-                                EdgeInsets.all(
-                              15,
-                            ),
-                            child:
-                                CircularProgressIndicator(
-                              strokeWidth:
-                                  2,
-                            ),
-                          )
-                        : Icon(
-                            icon,
-                            size: 30,
-                          ),
+                child: loading
+                    ? const Padding(
+                        padding: EdgeInsets.all(15),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(icon, size: 30),
               ),
-
-
-              const SizedBox(
-                width: 16,
-              ),
-
-
+              const SizedBox(width: 16),
               Expanded(
-
                 child: Column(
-
-                  crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
-
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
                     Text(
-
                       title,
-
-                      style:
-                          const TextStyle(
-
-                        fontSize:
-                            17,
-
-                        fontWeight:
-                            FontWeight
-                                .bold,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-
-
-                    const SizedBox(
-                      height: 4,
-                    ),
-
-
+                    const SizedBox(height: 4),
                     Text(
-
                       subtitle,
-
-                      style:
-                          TextStyle(
-
-                        color:
-                            Colors
-                                .grey
-                                .shade700,
-                      ),
+                      style: TextStyle(color: Colors.grey.shade700),
                     ),
                   ],
                 ),
               ),
-
-
-              trailing ??
-                  const Icon(
-                    Icons
-                        .arrow_forward_ios,
-                    size: 17,
-                  ),
+              trailing ?? const Icon(Icons.arrow_forward_ios, size: 17),
             ],
           ),
         ),
@@ -1354,2087 +2276,508 @@ class _HomePageState
     );
   }
 
-
-  // ==========================================================
-  // HOME BUILD
-  // ==========================================================
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-
-    return ValueListenableBuilder<
-        bool>(
-
-      valueListenable:
-          appArabic,
-
-      builder: (
-        context,
-        isArabic,
-        child,
-      ) {
-
-        return Scaffold(
-
-          appBar: AppBar(
-
-            title: Text(
-              tr(
-                isArabic,
-                'DPA MARC AI Assistant',
-                'مساعد MARC الذكي للمكتبة',
-              ),
-            ),
-
-            centerTitle:
-                true,
-
-            actions: [
-
-              LanguageButton(
-                isArabic:
-                    isArabic,
-              ),
-
-
-              Badge(
-
-                label:
-                    Text(
-                  marcCart.length
-                      .toString(),
-                ),
-
-                isLabelVisible:
-                    marcCart
-                        .isNotEmpty,
-
-                child:
-                    IconButton(
-
-                  tooltip:
-                      tr(
-                    isArabic,
-                    'Master MARC Cart',
-                    'سلة MARC الرئيسية',
-                  ),
-
-                  icon:
-                      const Icon(
-                    Icons
-                        .shopping_cart_outlined,
-                  ),
-
-                  onPressed:
-                      openCart,
-                ),
-              ),
-
-
-              const SizedBox(
-                width: 8,
-              ),
-            ],
-          ),
-
-
-          body:
-              SingleChildScrollView(
-
-            padding:
-                const EdgeInsets.all(
-              20,
-            ),
-
-            child: Center(
-
-              child:
-                  ConstrainedBox(
-
-                constraints:
-                    const BoxConstraints(
-                  maxWidth:
-                      800,
-                ),
-
-                child: Column(
-
-                  children: [
-
-                    Container(
-
-                      width: 105,
-
-                      height: 105,
-
-                      decoration:
-                          BoxDecoration(
-
-                        color:
-                            Theme.of(
-                          context,
-                        )
-                                .colorScheme
-                                .primaryContainer,
-
-                        shape:
-                            BoxShape
-                                .circle,
-                      ),
-
-                      child:
-                          const Icon(
-                        Icons
-                            .local_library_outlined,
-                        size: 58,
-                      ),
-                    ),
-
-
-                    const SizedBox(
-                      height: 22,
-                    ),
-
-
-                    Text(
-
-                      tr(
-                        isArabic,
-                        'AI MARC 21 Cataloguing Assistant',
-                        'مساعد الفهرسة الذكي MARC 21',
-                      ),
-
-                      textAlign:
-                          TextAlign
-                              .center,
-
-                      style:
-                          const TextStyle(
-
-                        fontSize:
-                            28,
-
-                        fontWeight:
-                            FontWeight
-                                .bold,
-                      ),
-                    ),
-
-
-                    const SizedBox(
-                      height: 8,
-                    ),
-
-
-                    Text(
-
-                      tr(
-                        isArabic,
-                        'Arabic & English Books, Theses and Dissertations',
-                        'الكتب والرسائل والأطروحات باللغة العربية والإنجليزية',
-                      ),
-
-                      textAlign:
-                          TextAlign
-                              .center,
-                    ),
-
-
-                    const SizedBox(
-                      height: 8,
-                    ),
-
-
-                    Text(
-
-                      tr(
-                        isArabic,
-                        'Upload all bibliographic pages for one item, generate MARC, review and approve the record, then add it to the Master Cart.',
-                        'ارفع جميع الصفحات الببليوجرافية الخاصة بمادة واحدة، ثم أنشئ MARC وراجع التسجيلة واعتمدها وأضفها إلى السلة الرئيسية.',
-                      ),
-
-                      textAlign:
-                          TextAlign
-                              .center,
-
-                      style:
-                          TextStyle(
-                        color:
-                            Colors
-                                .grey
-                                .shade700,
-                      ),
-                    ),
-
-
-                    const SizedBox(
-                      height: 30,
-                    ),
-
-
-                    // =========================================
-                    // STEP 1
-                    // =========================================
-
-                    actionCard(
-
-                      icon:
-                          Icons
-                              .cloud_upload_outlined,
-
-                      title:
-                          tr(
-                        isArabic,
-                        '1. Upload / Add Bibliographic Files',
-                        '1. رفع / إضافة الملفات الببليوجرافية',
-                      ),
-
-                      subtitle:
-                          tr(
-                        isArabic,
-                        'Take or select photos/PDFs. Open this again to add more pages without losing earlier files.',
-                        'التقط أو اختر صوراً وملفات PDF. افتح هذا الخيار مرة أخرى لإضافة صفحات أخرى دون فقد الملفات السابقة.',
-                      ),
-
-                      onTap:
-                          () =>
-                              pickFiles(
-                        isArabic,
-                      ),
-                    ),
-
-
-                    // =========================================
-                    // SELECTED FILE LIST
-                    // =========================================
-
-                    if (
-                      selectedFiles
-                          .isNotEmpty
-                    )
-
-                      Card(
-
-                        margin:
-                            const EdgeInsets.only(
-                          top: 8,
-                          bottom:
-                              12,
-                        ),
-
-                        child:
-                            Padding(
-
-                          padding:
-                              const EdgeInsets.all(
-                            12,
-                          ),
-
-                          child:
-                              Column(
-
-                            crossAxisAlignment:
-                                CrossAxisAlignment
-                                    .stretch,
-
-                            children: [
-
-                              Padding(
-
-                                padding:
-                                    const EdgeInsets.all(
-                                  8,
-                                ),
-
-                                child:
-                                    Text(
-
-                                  tr(
-                                    isArabic,
-                                    '${selectedFiles.length} file(s) currently selected',
-                                    'عدد الملفات المحددة حالياً: ${selectedFiles.length}',
-                                  ),
-
-                                  style:
-                                      const TextStyle(
-
-                                    fontWeight:
-                                        FontWeight
-                                            .bold,
-                                  ),
-                                ),
-                              ),
-
-
-                              for (
-                                int index =
-                                    0;
-                                index <
-                                    selectedFiles
-                                        .length;
-                                index++
-                              )
-
-                                ListTile(
-
-                                  leading:
-                                      Icon(
-
-                                    selectedFiles[index]
-                                                .extension
-                                                ?.toLowerCase() ==
-                                            'pdf'
-                                        ? Icons
-                                            .picture_as_pdf_outlined
-                                        : Icons
-                                            .image_outlined,
-                                  ),
-
-                                  title:
-                                      Text(
-
-                                    selectedFiles[
-                                            index]
-                                        .name,
-
-                                    maxLines:
-                                        2,
-
-                                    overflow:
-                                        TextOverflow
-                                            .ellipsis,
-                                  ),
-
-                                  trailing:
-                                      IconButton(
-
-                                    tooltip:
-                                        tr(
-                                      isArabic,
-                                      'Remove file',
-                                      'حذف الملف',
-                                    ),
-
-                                    icon:
-                                        const Icon(
-                                      Icons
-                                          .close,
-                                    ),
-
-                                    onPressed:
-                                        () {
-
-                                      removeFile(
-                                        index,
-                                      );
-                                    },
-                                  ),
-                                ),
-
-
-                              const SizedBox(
-                                height: 8,
-                              ),
-
-
-                              Wrap(
-
-                                alignment:
-                                    WrapAlignment
-                                        .center,
-
-                                spacing: 8,
-
-                                runSpacing: 8,
-
-                                children: [
-
-                                  FilledButton
-                                      .tonalIcon(
-
-                                    onPressed:
-                                        () =>
-                                            pickFiles(
-                                      isArabic,
-                                    ),
-
-                                    icon:
-                                        const Icon(
-                                      Icons
-                                          .add_photo_alternate_outlined,
-                                    ),
-
-                                    label:
-                                        Text(
-                                      tr(
-                                        isArabic,
-                                        'Add More Photos / PDFs',
-                                        'إضافة صور / ملفات PDF أخرى',
-                                      ),
-                                    ),
-                                  ),
-
-
-                                  TextButton
-                                      .icon(
-
-                                    onPressed:
-                                        clearFiles,
-
-                                    icon:
-                                        const Icon(
-                                      Icons
-                                          .delete_outline,
-                                    ),
-
-                                    label:
-                                        Text(
-                                      tr(
-                                        isArabic,
-                                        'Clear All Files',
-                                        'مسح جميع الملفات',
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-
-                    // =========================================
-                    // STEP 2
-                    // =========================================
-
-                    actionCard(
-
-                      icon:
-                          Icons
-                              .auto_awesome,
-
-                      title:
-                          tr(
-                        isArabic,
-                        '2. Generate MARC Record',
-                        '2. إنشاء تسجيلة MARC',
-                      ),
-
-                      subtitle:
-                          tr(
-                        isArabic,
-                        'AI analyses all selected pages together and creates one MARC 21 record',
-                        'يحلل الذكاء الاصطناعي جميع الصفحات المحددة معاً وينشئ تسجيلة MARC 21 واحدة',
-                      ),
-
-                      loading:
-                          isAnalyzing,
-
-                      onTap:
-                          isAnalyzing
-                              ? null
-                              : () =>
-                                  generateMarcRecord(
-                                    isArabic,
-                                  ),
-                    ),
-
-
-                    // =========================================
-                    // STEP 3
-                    // =========================================
-
-                    actionCard(
-
-                      icon:
-                          Icons
-                              .fact_check_outlined,
-
-                      title:
-                          tr(
-                        isArabic,
-                        '3. Review & Edit MARC',
-                        '3. مراجعة وتعديل MARC',
-                      ),
-
-                      subtitle:
-                          tr(
-                        isArabic,
-                        'Librarian verifies, corrects, adds fields and approves the record',
-                        'يقوم أمين المكتبة بالمراجعة والتصحيح وإضافة الحقول واعتماد التسجيلة',
-                      ),
-
-                      onTap:
-                          marcRecord ==
-                                  null
-                              ? null
-                              : () =>
-                                  reviewMarcRecord(
-                                    isArabic,
-                                  ),
-                    ),
-
-
-                    // =========================================
-                    // STEP 4
-                    // =========================================
-
-                    actionCard(
-
-                      icon:
-                          Icons
-                              .add_shopping_cart,
-
-                      title:
-                          tr(
-                        isArabic,
-                        '4. Add Approved Record to Cart',
-                        '4. إضافة التسجيلة المعتمدة إلى السلة',
-                      ),
-
-                      subtitle:
-                          isReviewed
-                              ? tr(
-                                  isArabic,
-                                  'Approved record is ready to add to the Master MARC Cart',
-                                  'التسجيلة المعتمدة جاهزة للإضافة إلى سلة MARC الرئيسية',
-                                )
-                              : tr(
-                                  isArabic,
-                                  'Review and approve the MARC record first',
-                                  'يرجى مراجعة واعتماد تسجيلة MARC أولاً',
-                                ),
-
-                      onTap:
-                          isReviewed
-                              ? () =>
-                                  addApprovedRecordToCart(
-                                    isArabic,
-                                  )
-                              : null,
-                    ),
-
-
-                    // =========================================
-                    // STEP 5
-                    // =========================================
-
-                    actionCard(
-
-                      icon:
-                          Icons
-                              .inventory_2_outlined,
-
-                      title:
-                          tr(
-                        isArabic,
-                        '5. View Master MARC Cart',
-                        '5. عرض سلة MARC الرئيسية',
-                      ),
-
-                      subtitle:
-                          marcCart
-                                  .isEmpty
-                              ? tr(
-                                  isArabic,
-                                  'No records currently in the cart',
-                                  'لا توجد تسجيلات حالياً في السلة',
-                                )
-                              : tr(
-                                  isArabic,
-                                  '${marcCart.length} approved record(s) ready for final Excel download',
-                                  '${marcCart.length} تسجيلة معتمدة جاهزة للتصدير النهائي إلى Excel',
-                                ),
-
-                      onTap:
-                          openCart,
-
-                      trailing:
-                          CircleAvatar(
-
-                        radius: 18,
-
-                        child:
-                            Text(
-                          marcCart
-                              .length
-                              .toString(),
-                        ),
-                      ),
-                    ),
-
-
-                    const SizedBox(
-                      height: 20,
-                    ),
-
-
-                    // =========================================
-                    // STATUS
-                    // =========================================
-
-                    Container(
-
-                      width:
-                          double
-                              .infinity,
-
-                      padding:
-                          const EdgeInsets.all(
-                        14,
-                      ),
-
-                      decoration:
-                          BoxDecoration(
-
-                        color:
-                            Colors
-                                .white,
-
-                        borderRadius:
-                            BorderRadius.circular(
-                          12,
-                        ),
-
-                        border:
-                            Border.all(
-                          color:
-                              Colors
-                                  .grey
-                                  .shade300,
-                        ),
-                      ),
-
-                      child: Row(
-
-                        children: [
-
-                          Icon(
-                            isReviewed
-                                ? Icons
-                                    .verified_outlined
-                                : Icons
-                                    .info_outline,
-                          ),
-
-
-                          const SizedBox(
-                            width: 10,
-                          ),
-
-
-                          Expanded(
-
-                            child:
-                                Text(
-
-                              isArabic
-                                  ? statusArabic
-                                  : statusEnglish,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-
-                    if (
-                      marcCart
-                          .isNotEmpty
-                    ) ...[
-
-                      const SizedBox(
-                        height: 15,
-                      ),
-
-
-                      Container(
-
-                        width:
-                            double
-                                .infinity,
-
-                        padding:
-                            const EdgeInsets.all(
-                          16,
-                        ),
-
-                        decoration:
-                            BoxDecoration(
-
-                          color:
-                              Theme.of(
-                            context,
-                          )
-                                  .colorScheme
-                                  .primaryContainer,
-
-                          borderRadius:
-                              BorderRadius.circular(
-                            12,
-                          ),
-                        ),
-
-                        child:
-                            Wrap(
-
-                          alignment:
-                              WrapAlignment
-                                  .spaceBetween,
-
-                          crossAxisAlignment:
-                              WrapCrossAlignment
-                                  .center,
-
-                          spacing:
-                              12,
-
-                          runSpacing:
-                              10,
-
-                          children: [
-
-                            Row(
-
-                              mainAxisSize:
-                                  MainAxisSize
-                                      .min,
-
-                              children: [
-
-                                const Icon(
-                                  Icons
-                                      .shopping_cart_checkout,
-                                ),
-
-
-                                const SizedBox(
-                                  width: 10,
-                                ),
-
-
-                                Text(
-
-                                  tr(
-                                    isArabic,
-                                    '${marcCart.length} approved MARC record(s) in Master Cart.',
-                                    '${marcCart.length} تسجيلة MARC معتمدة في السلة الرئيسية.',
-                                  ),
-
-                                  style:
-                                      const TextStyle(
-
-                                    fontWeight:
-                                        FontWeight
-                                            .w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-
-
-                            FilledButton(
-
-                              onPressed:
-                                  openCart,
-
-                              child:
-                                  Text(
-
-                                tr(
-                                  isArabic,
-                                  'Open Cart',
-                                  'فتح السلة',
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-
-                    const SizedBox(
-                      height: 35,
-                    ),
-
-
-                    const Divider(),
-
-
-                    const SizedBox(
-                      height: 12,
-                    ),
-
-
-                    Text(
-
-                      tr(
-                        isArabic,
-                        'DPA Library AI MARC Cataloguing Project',
-                        'مشروع الفهرسة الذكية MARC للمكتبة',
-                      ),
-
-                      textAlign:
-                          TextAlign
-                              .center,
-
-                      style:
-                          const TextStyle(
-
-                        fontWeight:
-                            FontWeight
-                                .w600,
-                      ),
-                    ),
-
-
-                    const SizedBox(
-                      height: 5,
-                    ),
-
-
-                    Text(
-
-                      tr(
-                        isArabic,
-                        'Project by Yameen Abdullah',
-                        'المشروع بواسطة يامين عبدالله',
-                      ),
-                    ),
-
-
-                    const SizedBox(
-                      height: 20,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-
-// ============================================================
-// MASTER CART PAGE
-// ============================================================
-
-class MarcCartPage
-    extends StatefulWidget {
-
-  final List<
-          Map<String, dynamic>>
-      records;
-
-  final String
-      backendBaseUrl;
-
-  final String Function(
-    Map<String, dynamic>,
-  ) recordTitle;
-
-  final String Function(
-    Map<String, dynamic>,
-  ) recordAuthor;
-
-  final VoidCallback
-      onCartChanged;
-
-
-  const MarcCartPage({
-
-    super.key,
-
-    required this.records,
-
-    required this.backendBaseUrl,
-
-    required this.recordTitle,
-
-    required this.recordAuthor,
-
-    required this.onCartChanged,
-  });
-
-
-  @override
-  State<MarcCartPage>
-      createState() =>
-          _MarcCartPageState();
-}
-
-
-class _MarcCartPageState
-    extends State<MarcCartPage> {
-
-  bool exporting =
-      false;
-
-
-  // ==========================================================
-  // EXPORT ALL
-  // ==========================================================
-
-  Future<void>
-      exportAllRecords(
-    bool isArabic,
-  ) async {
-
-    if (
-      widget.records.isEmpty
-    ) {
-
-      showMessage(
-        tr(
-          isArabic,
-          'The Master MARC Cart is empty.',
-          'سلة MARC الرئيسية فارغة.',
-        ),
-      );
-
-      return;
-    }
-
-
-    final numberOfRecords =
-        widget.records.length;
-
-
-    final confirmed =
-        await showDialog<bool>(
-
-      context:
-          context,
-
-      builder:
-          (context) =>
-              AlertDialog(
-
-        title:
-            Text(
-          tr(
-            isArabic,
-            'Download Master MARC Excel',
-            'تنزيل ملف Excel الرئيسي لـ MARC',
-          ),
-        ),
-
-        content:
-            Text(
-
-          tr(
-            isArabic,
-            'Create one Excel workbook containing all $numberOfRecords approved MARC record(s)?\n\nAfter a successful download, the Master MARC Cart will automatically be cleared.',
-            'هل تريد إنشاء ملف Excel واحد يحتوي على جميع تسجيلات MARC المعتمدة وعددها $numberOfRecords؟\n\nبعد نجاح التنزيل سيتم تفريغ سلة MARC الرئيسية تلقائياً.',
-          ),
-        ),
-
-        actions: [
-
-          TextButton(
-
-            onPressed:
-                () =>
-                    Navigator.pop(
-              context,
-              false,
-            ),
-
-            child:
-                Text(
-              tr(
-                isArabic,
-                'Cancel',
-                'إلغاء',
-              ),
-            ),
-          ),
-
-
-          FilledButton.icon(
-
-            onPressed:
-                () =>
-                    Navigator.pop(
-              context,
-              true,
-            ),
-
-            icon:
-                const Icon(
-              Icons
-                  .download_outlined,
-            ),
-
-            label:
-                Text(
-              tr(
-                isArabic,
-                'Download Excel',
-                'تنزيل Excel',
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-
-
-    if (
-      confirmed != true
-    ) {
-      return;
-    }
-
-
-    setState(() {
-      exporting = true;
-    });
-
-
-    try {
-
-      final response =
-          await http.post(
-
-        Uri.parse(
-          '${widget.backendBaseUrl}/marc/export-batch',
-        ),
-
-        headers: {
-          'Content-Type':
-              'application/json',
-        },
-
-        body:
-            jsonEncode({
-          'records':
-              widget.records,
-        }),
-      );
-
-
-      if (
-        response.statusCode !=
-            200
-      ) {
-
-        String message =
-            tr(
-          isArabic,
-          'Unable to create Excel workbook.',
-          'تعذر إنشاء ملف Excel.',
-        );
-
-
-        try {
-
-          final data =
-              jsonDecode(
-            response.body,
-          );
-
-
-          if (
-            data is Map &&
-            data['message'] !=
-                null
-          ) {
-
-            message =
-                data['message']
-                    .toString();
-          }
-
-        } catch (_) {}
-
-
-        showMessage(
-          message,
-        );
-
-        return;
-      }
-
-
-      final contentType =
-          response.headers[
-                  'content-type'] ??
-              '';
-
-
-      if (
-        !contentType.contains(
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        )
-      ) {
-
-        showMessage(
-          tr(
-            isArabic,
-            'The server did not return an Excel workbook.',
-            'لم يُرجع الخادم ملف Excel صالحاً.',
-          ),
-        );
-
-        return;
-      }
-
-
-      // ======================================================
-      // FILENAME
-      // ======================================================
-
-      String filename =
-          'DPA_MARC_Master.xlsx';
-
-
-      final disposition =
-          response.headers[
-              'content-disposition'];
-
-
-      if (
-        disposition != null
-      ) {
-
-        final match =
-            RegExp(
-          r'filename="?([^";]+)"?',
-        ).firstMatch(
-          disposition,
-        );
-
-
-        if (
-          match != null &&
-          match.group(1) !=
-              null
-        ) {
-
-          filename =
-              match.group(1)!;
-        }
-      }
-
-
-      // ======================================================
-      // BROWSER DOWNLOAD
-      // ======================================================
-
-      final Uint8List bytes =
-          response.bodyBytes;
-
-
-      final blob =
-          web.Blob(
-
-        <JSAny>[
-          bytes.toJS,
-        ].toJS,
-
-        web.BlobPropertyBag(
-
-          type:
-              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        ),
-      );
-
-
-      final objectUrl =
-          web.URL
-              .createObjectURL(
-        blob,
-      );
-
-
-      final anchor =
-          web.HTMLAnchorElement();
-
-
-      anchor.href =
-          objectUrl;
-
-      anchor.download =
-          filename;
-
-      anchor.style.display =
-          'none';
-
-
-      web.document.body
-          ?.appendChild(
-        anchor,
-      );
-
-
-      anchor.click();
-
-
-      anchor.parentNode
-          ?.removeChild(
-        anchor,
-      );
-
-
-      web.URL
-          .revokeObjectURL(
-        objectUrl,
-      );
-
-
-      if (!mounted) {
-        return;
-      }
-
-
-      // ======================================================
-      // CLEAR CART AFTER SUCCESS
-      // ======================================================
-
-      setState(() {
-        widget.records.clear();
-      });
-
-
-      widget
-          .onCartChanged();
-
-
-      await showDialog<void>(
-
-        context:
-            context,
-
-        builder:
-            (context) =>
-                AlertDialog(
-
-          title:
-              Text(
-            tr(
-              isArabic,
-              'Excel Download Successful',
-              'تم تنزيل ملف Excel بنجاح',
-            ),
-          ),
-
-          content:
-              Column(
-
-            mainAxisSize:
-                MainAxisSize
-                    .min,
-
-            crossAxisAlignment:
-                CrossAxisAlignment
-                    .start,
-
-            children: [
-
-              Text(
-                tr(
-                  isArabic,
-                  'Records exported: $numberOfRecords',
-                  'عدد التسجيلات المصدرة: $numberOfRecords',
-                ),
-              ),
-
-
-              const SizedBox(
-                height: 10,
-              ),
-
-
-              Text(
-
-                tr(
-                  isArabic,
-                  'Downloaded file:',
-                  'الملف الذي تم تنزيله:',
-                ),
-
-                style:
-                    const TextStyle(
-
-                  fontWeight:
-                      FontWeight
-                          .bold,
-                ),
-              ),
-
-
-              const SizedBox(
-                height: 5,
-              ),
-
-
-              SelectableText(
-                filename,
-              ),
-
-
-              const SizedBox(
-                height: 15,
-              ),
-
-
-              Text(
-
-                tr(
-                  isArabic,
-                  'The Master MARC Cart has been cleared automatically and is ready for the next batch.',
-                  'تم تفريغ سلة MARC الرئيسية تلقائياً وهي جاهزة للدفعة التالية.',
-                ),
-              ),
-            ],
-          ),
-
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: appArabic,
+      builder: (context, ar, _) => Scaffold(
+        appBar: AppBar(
+          title: Text(
+  tr(ar, 'MARC AI Assistant', 'مساعد MARC الذكي للمكتبة'),
+),
+          centerTitle: true,
           actions: [
-
-            FilledButton(
-
-              onPressed:
-                  () =>
-                      Navigator.pop(
-                context,
-              ),
-
-              child:
-                  Text(
-                tr(
-                  isArabic,
-                  'OK',
-                  'موافق',
-                ),
+            LanguageButton(isArabic: ar),
+            Badge(
+              label: Text(marcCart.length.toString()),
+              isLabelVisible: marcCart.isNotEmpty,
+              child: IconButton(
+                icon: const Icon(Icons.shopping_cart_outlined),
+                onPressed: openCart,
               ),
             ),
           ],
         ),
-      );
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Column(
+                children: [
+                  Container(
+                    width: 105,
+                    height: 105,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.local_library_outlined, size: 58),
+                  ),
+                  const SizedBox(height: 22),
+                  Text(
+                    tr(
+                      ar,
+                      'AI MARC 21 Cataloguing Assistant',
+                      'مساعد الفهرسة الذكي MARC 21',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    tr(
+                      ar,
+                      'Arabic & English Books, Theses and Dissertations',
+                      'الكتب والرسائل والأطروحات باللغة العربية والإنجليزية',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 28),
+                  actionCard(
+                    Icons.cloud_upload_outlined,
+                    tr(
+                      ar,
+                      '1. Upload / Add Bibliographic Files',
+                      '1. رفع / إضافة الملفات الببليوجرافية',
+                    ),
+                    tr(
+                      ar,
+                      'Take or select photos/PDFs. Add more without losing earlier files.',
+                      'التقط أو اختر صوراً وملفات PDF وأضف المزيد دون فقد الملفات السابقة.',
+                    ),
+                    () => pickFiles(ar),
+                  ),
+                  if (selectedFiles.isNotEmpty)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          children: [
+                            Text(
+                              tr(
+                                ar,
+                                '${selectedFiles.length} file(s) currently selected',
+                                'عدد الملفات المحددة حالياً: ${selectedFiles.length}',
+                              ),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            for (int i = 0; i < selectedFiles.length; i++)
+                              ListTile(
+                                leading: Icon(
+                                  selectedFiles[i]
+                                              .extension
+                                              ?.toLowerCase() ==
+                                          'pdf'
+                                      ? Icons.picture_as_pdf_outlined
+                                      : Icons.image_outlined,
+                                ),
+                                title: Text(selectedFiles[i].name),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.close),
+                                  onPressed: () => removeFile(i),
+                                ),
+                              ),
+                            Wrap(
+                              spacing: 8,
+                              children: [
+                                FilledButton.tonalIcon(
+                                  onPressed: () => pickFiles(ar),
+                                  icon: const Icon(
+                                    Icons.add_photo_alternate_outlined,
+                                  ),
+                                  label: Text(
+                                    tr(
+                                      ar,
+                                      'Add More Photos / PDFs',
+                                      'إضافة صور / ملفات PDF أخرى',
+                                    ),
+                                  ),
+                                ),
+                                TextButton.icon(
+                                  onPressed: clearFiles,
+                                  icon: const Icon(Icons.delete_outline),
+                                  label: Text(
+                                    tr(ar, 'Clear All Files', 'مسح جميع الملفات'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  actionCard(
+                    Icons.auto_awesome,
+                    tr(
+                      ar,
+                      '2. Generate MARC Record',
+                      '2. إنشاء تسجيلة MARC',
+                    ),
+                    tr(
+                      ar,
+                      'AI analyses all selected pages together and creates one MARC 21 record',
+                      'يحلل الذكاء الاصطناعي جميع الصفحات المحددة معاً وينشئ تسجيلة MARC 21 واحدة',
+                    ),
+                    isAnalyzing
+    ? null
+    : () async {
+        try {
+          final result = await Supabase.instance.client
+    .rpc('check_marc_credit');
 
-    } catch (error) {
+final data = Map<String, dynamic>.from(result as Map);
 
-      showMessage(
+final bool allowed = data['allowed'] == true;
+final bool unlimited = data['unlimited'] == true;
+final int used = (data['used'] as num?)?.toInt() ?? 0;
+final int remaining = (data['remaining'] as num?)?.toInt() ?? 0;
+final String packageName =
+    data['package_name']?.toString() ?? 'Unknown';
+
+if (!allowed) {
+  if (!mounted) return;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
         tr(
-          isArabic,
-          'Batch export error: $error',
-          'خطأ في تصدير الدفعة: $error',
+          ar,
+          'Your $packageName MARC record limit has been reached.',
+          'لقد وصلت إلى الحد الأقصى لسجلات MARC في باقة $packageName.',
         ),
-      );
+      ),
+    ),
+  );
 
-    } finally {
+  return;
+}
 
-      if (mounted) {
+          
 
-        setState(() {
-          exporting =
-              false;
-        });
-      }
-    }
-  }
+          await generateMarcRecord(ar);
+  } catch (e, stackTrace) {
+  debugPrint('MARC ACCESS ERROR TYPE: ${e.runtimeType}');
+  debugPrint('MARC ACCESS ERROR: $e');
+  debugPrint('MARC ACCESS STACK: $stackTrace');
 
+  if (!mounted) return;
 
-  // ==========================================================
-  // REMOVE RECORD
-  // ==========================================================
-
-  void removeRecord(
-    int index,
-    bool isArabic,
-  ) {
-
-    widget.records
-        .removeAt(
-      index,
-    );
-
-
-    setState(() {});
-
-
-    widget
-        .onCartChanged();
-
-
-    showMessage(
-      tr(
-        isArabic,
-        'Record removed from cart.',
-        'تم حذف التسجيلة من السلة.',
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      duration: const Duration(seconds: 10),
+      content: Text(
+        'MARC access error [${e.runtimeType}]: $e',
+      ),
+    ),
+  );
+}
+},
+loading: isAnalyzing,
+                  ),
+                  actionCard(
+                    Icons.fact_check_outlined,
+                    tr(
+                      ar,
+                      '3. Review & Edit MARC',
+                      '3. مراجعة وتعديل MARC',
+                    ),
+                    tr(
+                      ar,
+                      'Librarian verifies, corrects, adds fields and approves the record',
+                      'يقوم أمين المكتبة بالمراجعة والتصحيح وإضافة الحقول واعتماد التسجيلة',
+                    ),
+                    marcRecord == null ? null : () => reviewMarcRecord(ar),
+                  ),
+                  actionCard(
+                    Icons.add_shopping_cart,
+                    tr(
+                      ar,
+                      '4. Add Approved Record to Cart',
+                      '4. إضافة التسجيلة المعتمدة إلى السلة',
+                    ),
+                    isReviewed
+                        ? tr(
+                            ar,
+                            'Approved record is ready for the Master MARC Cart',
+                            'التسجيلة المعتمدة جاهزة للإضافة إلى سلة MARC الرئيسية',
+                          )
+                        : tr(
+                            ar,
+                            'Review and approve the MARC record first',
+                            'يرجى مراجعة واعتماد تسجيلة MARC أولاً',
+                          ),
+                    isReviewed ? () => addApprovedRecordToCart(ar) : null,
+                  ),
+                  actionCard(
+                    Icons.inventory_2_outlined,
+                    tr(
+                      ar,
+                      '5. View Master MARC Cart',
+                      '5. عرض سلة MARC الرئيسية',
+                    ),
+                    marcCart.isEmpty
+                        ? tr(
+                            ar,
+                            'No records currently in the cart',
+                            'لا توجد تسجيلات حالياً في السلة',
+                          )
+                        : tr(
+                            ar,
+                            '${marcCart.length} approved record(s) ready for Excel download',
+                            '${marcCart.length} تسجيلة معتمدة جاهزة للتصدير إلى Excel',
+                          ),
+                    openCart,
+                    trailing: CircleAvatar(
+                      radius: 18,
+                      child: Text(marcCart.length.toString()),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Text(ar ? statusArabic : statusEnglish),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
+}
 
+// ============================================================
+// CART PAGE
+// ============================================================
 
-  // ==========================================================
-  // CLEAR CART
-  // ==========================================================
+class MarcCartPage extends StatefulWidget {
+  final List<Map<String, dynamic>> records;
+  final String backendBaseUrl;
+  final String Function(Map<String, dynamic>) recordTitle;
+  final String Function(Map<String, dynamic>) recordAuthor;
+  final VoidCallback onCartChanged;
 
-  Future<void> clearCart(
-    bool isArabic,
-  ) async {
+  const MarcCartPage({
+    super.key,
+    required this.records,
+    required this.backendBaseUrl,
+    required this.recordTitle,
+    required this.recordAuthor,
+    required this.onCartChanged,
+  });
 
-    if (
-      widget.records.isEmpty
-    ) {
-      return;
-    }
+  @override
+  State<MarcCartPage> createState() => _MarcCartPageState();
+}
 
+class _MarcCartPageState extends State<MarcCartPage> {
+  bool exporting = false;
 
-    final confirmed =
-        await showDialog<bool>(
+  void showMessage(String m) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+  }
 
-      context:
-          context,
+  Future<void> exportAll(bool ar) async {
+    if (widget.records.isEmpty) return;
 
-      builder:
-          (context) =>
-              AlertDialog(
-
-        title:
-            Text(
+    final count = widget.records.length;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(
           tr(
-            isArabic,
-            'Clear Master MARC Cart',
-            'تفريغ سلة MARC الرئيسية',
+            ar,
+            'Download Master MARC Excel',
+            'تنزيل ملف Excel الرئيسي لـ MARC',
           ),
         ),
-
-        content:
-            Text(
-
+        content: Text(
           tr(
-            isArabic,
-            'Remove all ${widget.records.length} record(s) from the cart?',
-            'هل تريد حذف جميع التسجيلات وعددها ${widget.records.length} من السلة؟',
+            ar,
+            'Create one Excel workbook containing all $count approved record(s)? The cart will be cleared after successful download.',
+            'هل تريد إنشاء ملف Excel واحد يحتوي على جميع التسجيلات المعتمدة وعددها $count؟ سيتم تفريغ السلة بعد نجاح التنزيل.',
           ),
         ),
-
         actions: [
-
           TextButton(
-
-            onPressed:
-                () =>
-                    Navigator.pop(
-              context,
-              false,
-            ),
-
-            child:
-                Text(
-              tr(
-                isArabic,
-                'Cancel',
-                'إلغاء',
-              ),
-            ),
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(tr(ar, 'Cancel', 'إلغاء')),
           ),
-
-
           FilledButton(
-
-            onPressed:
-                () =>
-                    Navigator.pop(
-              context,
-              true,
-            ),
-
-            child:
-                Text(
-              tr(
-                isArabic,
-                'Clear Cart',
-                'تفريغ السلة',
-              ),
-            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(tr(ar, 'Download Excel', 'تنزيل Excel')),
           ),
         ],
       ),
     );
 
+    if (ok != true) return;
 
-    if (
-      confirmed != true
-    ) {
-      return;
+    setState(() => exporting = true);
+
+    try {
+      final response = await http.post(
+        Uri.parse('${widget.backendBaseUrl}/marc/export-batch'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'records': widget.records}),
+      );
+
+      if (response.statusCode != 200) {
+        showMessage(
+          tr(ar, 'Unable to create Excel workbook.', 'تعذر إنشاء ملف Excel.'),
+        );
+        return;
+      }
+
+      String filename = 'DPA_MARC_Master.xlsx';
+      final disposition = response.headers['content-disposition'];
+      if (disposition != null) {
+        final match =
+            RegExp(r'filename="?([^";]+)"?').firstMatch(disposition);
+        if (match?.group(1) != null) filename = match!.group(1)!;
+      }
+
+      final Uint8List bytes = response.bodyBytes;
+      final blob = web.Blob(
+        <JSAny>[bytes.toJS].toJS,
+        web.BlobPropertyBag(
+          type:
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ),
+      );
+      final objectUrl = web.URL.createObjectURL(blob);
+      final anchor = web.HTMLAnchorElement();
+      anchor.href = objectUrl;
+      anchor.download = filename;
+      web.document.body?.appendChild(anchor);
+      anchor.click();
+      anchor.parentNode?.removeChild(anchor);
+      web.URL.revokeObjectURL(objectUrl);
+
+      setState(() => widget.records.clear());
+      widget.onCartChanged();
+    } catch (e) {
+      showMessage(tr(ar, 'Export error: $e', 'خطأ في التصدير: $e'));
+    } finally {
+      if (mounted) setState(() => exporting = false);
     }
-
-
-    setState(() {
-      widget.records.clear();
-    });
-
-
-    widget
-        .onCartChanged();
   }
 
-
-  // ==========================================================
-  // MESSAGE
-  // ==========================================================
-
-  void showMessage(
-    String message,
-  ) {
-
-    if (!mounted) {
-      return;
-    }
-
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
-
-      SnackBar(
-        content:
-            Text(
-          message,
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: appArabic,
+      builder: (context, ar, _) => Scaffold(
+        appBar: AppBar(
+          title: Text(tr(ar, 'Master MARC Cart', 'سلة MARC الرئيسية')),
+          actions: [LanguageButton(isArabic: ar)],
         ),
+        body: widget.records.isEmpty
+            ? Center(
+                child: Text(
+                  tr(ar, 'Master MARC Cart is empty', 'سلة MARC الرئيسية فارغة'),
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              )
+            : Column(
+                children: [
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: widget.records.length,
+                      itemBuilder: (_, i) {
+                        final record = widget.records[i];
+                        return Card(
+                          child: ListTile(
+                            leading: CircleAvatar(child: Text('${i + 1}')),
+                            title: Text(widget.recordTitle(record)),
+                            subtitle: Text(widget.recordAuthor(record)),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () {
+                                setState(() => widget.records.removeAt(i));
+                                widget.onCartChanged();
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: exporting ? null : () => exportAll(ar),
+                          icon: exporting
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.download_outlined),
+                          label: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Text(
+                              tr(
+                                ar,
+                                'Download All ${widget.records.length} Records as Excel',
+                                'تنزيل جميع التسجيلات وعددها ${widget.records.length} كملف Excel',
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }
-
-
-  // ==========================================================
-  // CART BUILD
-  // ==========================================================
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-
-    return ValueListenableBuilder<
-        bool>(
-
-      valueListenable:
-          appArabic,
-
-      builder: (
-        context,
-        isArabic,
-        child,
-      ) {
-
-        return Scaffold(
-
-          appBar:
-              AppBar(
-
-            title:
-                Text(
-              tr(
-                isArabic,
-                'Master MARC Cart',
-                'سلة MARC الرئيسية',
-              ),
-            ),
-
-            actions: [
-
-              LanguageButton(
-                isArabic:
-                    isArabic,
-              ),
-
-
-              if (
-                widget.records
-                    .isNotEmpty
-              )
-
-                IconButton(
-
-                  tooltip:
-                      tr(
-                    isArabic,
-                    'Clear Cart',
-                    'تفريغ السلة',
-                  ),
-
-                  onPressed:
-                      () =>
-                          clearCart(
-                    isArabic,
-                  ),
-
-                  icon:
-                      const Icon(
-                    Icons
-                        .delete_sweep_outlined,
-                  ),
-                ),
-            ],
-          ),
-
-
-          body:
-              widget.records
-                      .isEmpty
-                  ? Center(
-
-                      child:
-                          SingleChildScrollView(
-
-                        padding:
-                            const EdgeInsets.all(
-                          20,
-                        ),
-
-                        child:
-                            Column(
-
-                          mainAxisAlignment:
-                              MainAxisAlignment
-                                  .center,
-
-                          children: [
-
-                            Icon(
-
-                              Icons
-                                  .shopping_cart_outlined,
-
-                              size: 80,
-
-                              color:
-                                  Colors
-                                      .grey
-                                      .shade400,
-                            ),
-
-
-                            const SizedBox(
-                              height: 18,
-                            ),
-
-
-                            Text(
-
-                              tr(
-                                isArabic,
-                                'Master MARC Cart is empty',
-                                'سلة MARC الرئيسية فارغة',
-                              ),
-
-                              textAlign:
-                                  TextAlign
-                                      .center,
-
-                              style:
-                                  const TextStyle(
-
-                                fontSize:
-                                    22,
-
-                                fontWeight:
-                                    FontWeight
-                                        .bold,
-                              ),
-                            ),
-
-
-                            const SizedBox(
-                              height: 8,
-                            ),
-
-
-                            Text(
-
-                              tr(
-                                isArabic,
-                                'Ready for the next cataloguing batch.',
-                                'جاهز لدفعة الفهرسة التالية.',
-                              ),
-
-                              textAlign:
-                                  TextAlign
-                                      .center,
-                            ),
-
-
-                            const SizedBox(
-                              height: 20,
-                            ),
-
-
-                            FilledButton.icon(
-
-                              onPressed:
-                                  () =>
-                                      Navigator.pop(
-                                context,
-                              ),
-
-                              icon:
-                                  const Icon(
-                                Icons
-                                    .arrow_back,
-                              ),
-
-                              label:
-                                  Text(
-                                tr(
-                                  isArabic,
-                                  'Return to Cataloguing',
-                                  'العودة إلى الفهرسة',
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-
-                  : Column(
-
-                      children: [
-
-                        Container(
-
-                          width:
-                              double
-                                  .infinity,
-
-                          margin:
-                              const EdgeInsets.all(
-                            16,
-                          ),
-
-                          padding:
-                              const EdgeInsets.all(
-                            18,
-                          ),
-
-                          decoration:
-                              BoxDecoration(
-
-                            color:
-                                Theme.of(
-                              context,
-                            )
-                                    .colorScheme
-                                    .primaryContainer,
-
-                            borderRadius:
-                                BorderRadius.circular(
-                              14,
-                            ),
-                          ),
-
-                          child:
-                              Row(
-
-                            children: [
-
-                              const Icon(
-                                Icons
-                                    .inventory_2_outlined,
-                                size: 35,
-                              ),
-
-
-                              const SizedBox(
-                                width: 14,
-                              ),
-
-
-                              Expanded(
-
-                                child:
-                                    Column(
-
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment
-                                          .start,
-
-                                  children: [
-
-                                    Text(
-
-                                      tr(
-                                        isArabic,
-                                        'Approved MARC Records',
-                                        'تسجيلات MARC المعتمدة',
-                                      ),
-
-                                      style:
-                                          const TextStyle(
-
-                                        fontSize:
-                                            18,
-
-                                        fontWeight:
-                                            FontWeight
-                                                .bold,
-                                      ),
-                                    ),
-
-
-                                    Text(
-
-                                      tr(
-                                        isArabic,
-                                        '${widget.records.length} record(s) ready for final Excel download',
-                                        '${widget.records.length} تسجيلة جاهزة للتنزيل النهائي إلى Excel',
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-
-                        Expanded(
-
-                          child:
-                              ListView.builder(
-
-                            padding:
-                                const EdgeInsets.symmetric(
-                              horizontal:
-                                  16,
-                            ),
-
-                            itemCount:
-                                widget.records
-                                    .length,
-
-                            itemBuilder:
-                                (
-                              context,
-                              index,
-                            ) {
-
-                              final record =
-                                  widget.records[
-                                      index];
-
-
-                              return Card(
-
-                                margin:
-                                    const EdgeInsets.only(
-                                  bottom:
-                                      12,
-                                ),
-
-                                child:
-                                    ListTile(
-
-                                  leading:
-                                      CircleAvatar(
-                                    child:
-                                        Text(
-                                      '${index + 1}',
-                                    ),
-                                  ),
-
-                                  title:
-                                      Text(
-                                    widget
-                                        .recordTitle(
-                                      record,
-                                    ),
-                                  ),
-
-                                  subtitle:
-                                      Column(
-
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment
-                                            .start,
-
-                                    children: [
-
-                                      if (
-                                        widget
-                                            .recordAuthor(
-                                          record,
-                                        )
-                                            .isNotEmpty
-                                      )
-
-                                        Text(
-                                          widget
-                                              .recordAuthor(
-                                            record,
-                                          ),
-                                        ),
-
-
-                                      Text(
-                                        '${record['material_type'] ?? ''} • ${record['language'] ?? ''}',
-                                      ),
-                                    ],
-                                  ),
-
-                                  trailing:
-                                      IconButton(
-
-                                    icon:
-                                        const Icon(
-                                      Icons
-                                          .delete_outline,
-                                    ),
-
-                                    onPressed:
-                                        () =>
-                                            removeRecord(
-                                      index,
-                                      isArabic,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-
-
-                        SafeArea(
-
-                          top: false,
-
-                          child:
-                              Padding(
-
-                            padding:
-                                const EdgeInsets.all(
-                              16,
-                            ),
-
-                            child:
-                                SizedBox(
-
-                              width:
-                                  double
-                                      .infinity,
-
-                              child:
-                                  FilledButton.icon(
-
-                                onPressed:
-                                    exporting
-                                        ? null
-                                        : () =>
-                                            exportAllRecords(
-                                              isArabic,
-                                            ),
-
-                                icon:
-                                    exporting
-                                        ? const SizedBox(
-                                            width:
-                                                20,
-                                            height:
-                                                20,
-                                            child:
-                                                CircularProgressIndicator(
-                                              strokeWidth:
-                                                  2,
-                                            ),
-                                          )
-                                        : const Icon(
-                                            Icons
-                                                .download_outlined,
-                                          ),
-
-                                label:
-                                    Padding(
-
-                                  padding:
-                                      const EdgeInsets.all(
-                                    14,
-                                  ),
-
-                                  child:
-                                      Text(
-
-                                    exporting
-                                        ? tr(
-                                            isArabic,
-                                            'Creating Excel Workbook...',
-                                            'جارٍ إنشاء ملف Excel...',
-                                          )
-                                        : tr(
-                                            isArabic,
-                                            'Download All ${widget.records.length} Records as Excel',
-                                            'تنزيل جميع التسجيلات وعددها ${widget.records.length} كملف Excel',
-                                          ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-        );
-      },
-    );
-  }
 }
-
 
 // ============================================================
 // REVIEW PAGE
 // ============================================================
 
-class MarcReviewPage
-    extends StatefulWidget {
-
-  final Map<String, dynamic>
-      record;
-
-
+class MarcReviewPage extends StatefulWidget {
+  final Map<String, dynamic> record;
   const MarcReviewPage({
-
     super.key,
-
     required this.record,
   });
 
-
   @override
-  State<MarcReviewPage>
-      createState() =>
-          _MarcReviewPageState();
+  State<MarcReviewPage> createState() => _MarcReviewPageState();
 }
 
+class _MarcReviewPageState extends State<MarcReviewPage> {
+  final Map<String, TextEditingController> controllers = {};
+  final List<CustomMarcField> customFields = [];
+  bool showEmptyFields = false;
 
-class _MarcReviewPageState
-    extends State<MarcReviewPage> {
-
-  final Map<
-          String,
-          TextEditingController>
-      controllers = {};
-
-
-  final List<
-          CustomMarcField>
-      customFields = [];
-
-
-  final List<String>
-      fields = [
-
+  final fields = [
     'field_020',
     'field_041',
     'field_050',
@@ -3460,10 +2803,7 @@ class _MarcReviewPageState
     'field_949',
   ];
 
-
-  final Set<String>
-      listFields = {
-
+  final repeatable = {
     'field_020',
     'field_500',
     'field_600',
@@ -3475,933 +2815,1376 @@ class _MarcReviewPageState
     'field_856',
   };
 
-
-  // ==========================================================
-  // LABELS
-  // ==========================================================
-
-  String fieldLabel(
-    String field,
-    bool ar,
-  ) {
-
-    final labels = {
-
-      'field_020':
-          tr(
-        ar,
-        '020 — ISBN',
-        '020 — الرقم الدولي المعياري للكتاب',
-      ),
-
-      'field_041':
-          tr(
-        ar,
-        '041 — Language',
-        '041 — اللغة',
-      ),
-
-      'field_050':
-          tr(
+  String label(String f, bool ar) {
+    final map = {
+      'field_020': tr(ar, '020 — ISBN', '020 — الرقم الدولي المعياري للكتاب'),
+      'field_041': tr(ar, '041 — Language', '041 — اللغة'),
+      'field_050': tr(
         ar,
         '050 — LC Classification',
         '050 — تصنيف مكتبة الكونغرس',
       ),
-
-      'field_082':
-          tr(
+      'field_082': tr(
         ar,
         '082 — Dewey Decimal Classification',
         '082 — تصنيف ديوي العشري',
       ),
-
-      'field_100':
-          tr(
-        ar,
-        '100 — Main Author',
-        '100 — المؤلف الرئيسي',
-      ),
-
-      'field_110':
-          tr(
+      'field_100': tr(ar, '100 — Main Author', '100 — المؤلف الرئيسي'),
+      'field_110': tr(
         ar,
         '110 — Corporate Main Entry',
         '110 — المدخل الرئيسي للهيئة',
       ),
-
-      'field_245':
-          tr(
+      'field_245': tr(
         ar,
         '245 — Title & Statement of Responsibility',
         '245 — العنوان وبيان المسؤولية',
       ),
-
-      'field_250':
-          tr(
-        ar,
-        '250 — Edition',
-        '250 — الطبعة',
-      ),
-
-      'field_264':
-          tr(
+      'field_250': tr(ar, '250 — Edition', '250 — الطبعة'),
+      'field_264': tr(
         ar,
         '264 — Publication / Production',
         '264 — النشر / الإنتاج',
       ),
-
-      'field_300':
-          tr(
+      'field_300': tr(
         ar,
         '300 — Physical Description',
         '300 — الوصف المادي',
       ),
-
-      'field_490':
-          tr(
-        ar,
-        '490 — Series',
-        '490 — السلسلة',
-      ),
-
-      'field_500':
-          tr(
-        ar,
-        '500 — General Notes',
-        '500 — الملاحظات العامة',
-      ),
-
-      'field_502':
-          tr(
+      'field_490': tr(ar, '490 — Series', '490 — السلسلة'),
+      'field_500': tr(ar, '500 — General Notes', '500 — الملاحظات العامة'),
+      'field_502': tr(
         ar,
         '502 — Thesis / Dissertation Note',
         '502 — ملاحظة الرسالة / الأطروحة',
       ),
-
-      'field_504':
-          tr(
+      'field_504': tr(
         ar,
         '504 — Bibliographical References / Index',
         '504 — المراجع الببليوجرافية / الكشاف',
       ),
-
-      'field_505':
-          tr(
-        ar,
-        '505 — Contents Note',
-        '505 — ملاحظة المحتويات',
-      ),
-
-      'field_600':
-          tr(
+      'field_505': tr(ar, '505 — Contents Note', '505 — ملاحظة المحتويات'),
+      'field_600': tr(
         ar,
         '600 — Personal Name Subjects',
         '600 — رؤوس موضوعات أسماء الأشخاص',
       ),
-
-      'field_610':
-          tr(
+      'field_610': tr(
         ar,
         '610 — Corporate Name Subjects',
         '610 — رؤوس موضوعات أسماء الهيئات',
       ),
-
-      'field_650':
-          tr(
-        ar,
-        '650 — Topical Subjects',
-        '650 — رؤوس الموضوعات',
-      ),
-
-      'field_651':
-          tr(
+      'field_650': tr(ar, '650 — Topical Subjects', '650 — رؤوس الموضوعات'),
+      'field_651': tr(
         ar,
         '651 — Geographic Subjects',
         '651 — الموضوعات الجغرافية',
       ),
-
-      'field_700':
-          tr(
+      'field_700': tr(
         ar,
         '700 — Added Personal Entries',
         '700 — المداخل الإضافية للأشخاص',
       ),
-
-      'field_710':
-          tr(
+      'field_710': tr(
         ar,
         '710 — Added Corporate Entries',
         '710 — المداخل الإضافية للهيئات',
       ),
-
-      'field_856':
-          tr(
+      'field_856': tr(
         ar,
         '856 — Electronic Access',
         '856 — الوصول الإلكتروني',
       ),
-
-      'field_949':
-          tr(
-        ar,
-        '949 — Local Call Number',
-        '949 — رقم الاستدعاء المحلي',
-      ),
+      'field_949': tr(ar, '949 — Local Call Number', '949 — رقم الاستدعاء المحلي'),
     };
-
-
-    return labels[field] ??
-        field;
+    return map[f] ?? f;
   }
-
-
-  // ==========================================================
-  // INIT
-  // ==========================================================
 
   @override
   void initState() {
-
     super.initState();
-
-
-    for (
-      final field
-      in fields
-    ) {
-
-      final value =
-          widget.record[field];
-
-
-      String text =
-          '';
-
-
-      if (
-        value is List
-      ) {
-
-        text =
-            value.join(
-          '\n',
-        );
-
-      } else if (
-        value != null
-      ) {
-
-        text =
-            value.toString();
-      }
-
-
-      controllers[field] =
-          TextEditingController(
-        text:
-            text,
+    for (final f in fields) {
+      final v = widget.record[f];
+      controllers[f] = TextEditingController(
+        text: v is List ? v.join('\n') : (v?.toString() ?? ''),
       );
     }
-
-
-    final custom =
-        widget.record[
-            'custom_fields'];
-
-
-    if (
-      custom is List
-    ) {
-
-      for (
-        final item
-        in custom
-      ) {
-
-        if (
-          item is Map
-        ) {
-
+    final custom = widget.record['custom_fields'];
+    if (custom is List) {
+      for (final item in custom) {
+        if (item is Map) {
           customFields.add(
-
-            CustomMarcField
-                .fromJson(
-
-              Map<String, dynamic>
-                  .from(
-                item,
-              ),
-            ),
+            CustomMarcField.fromJson(Map<String, dynamic>.from(item)),
           );
         }
       }
     }
   }
 
-
-  // ==========================================================
-  // CUSTOM FIELD VALIDATION
-  // ==========================================================
-
-  String? validateCustomField({
-
-    required String tag,
-
-    required String indicators,
-
-    required String value,
-  }) {
-
-    if (
-      !RegExp(
-        r'^\d{3}$',
-      ).hasMatch(
-        tag,
-      )
-    ) {
-
-      return 'MARC tag must contain exactly 3 digits.';
+  Map<String, dynamic> buildRecord() {
+    final updated = Map<String, dynamic>.from(widget.record);
+    for (final f in fields) {
+      final text = controllers[f]!.text.trim();
+      updated[f] = repeatable.contains(f)
+          ? (text.isEmpty
+              ? []
+              : text
+                  .split('\n')
+                  .map((e) => e.trim())
+                  .where((e) => e.isNotEmpty)
+                  .toList())
+          : (text.isEmpty ? null : text);
     }
-
-
-    if (
-      indicators.length >
-          2
-    ) {
-
-      return 'Indicators may contain a maximum of 2 characters.';
-    }
-
-
-    if (
-      value.trim().isEmpty
-    ) {
-
-      return 'Enter a MARC field value.';
-    }
-
-
-    final numericTag =
-        int.tryParse(
-          tag,
-        ) ??
-        0;
-
-
-    if (
-      numericTag >= 10 &&
-      !value.contains(
-        r'$',
-      )
-    ) {
-
-      return 'This MARC field should normally contain a subfield such as \$a.';
-    }
-
-
-    if (
-      tag == '650' &&
-      !value.contains(
-        r'$a',
-      )
-    ) {
-
-      return '650 should contain \$a.';
-    }
-
-
-    return null;
+    updated['custom_fields'] =
+        customFields.map((e) => e.toJson()).toList();
+    return updated;
   }
 
+  Future<void> addField(bool ar) async {
+    final tag = TextEditingController();
+    final ind = TextEditingController(text: '##');
+    final val = TextEditingController();
 
-  // ==========================================================
-  // ADD CUSTOM MARC FIELD
-  // ==========================================================
-
-  Future<void> addMarcField(
-    bool isArabic,
-  ) async {
-
-    final tagController =
-        TextEditingController();
-
-
-    final indicatorsController =
-        TextEditingController(
-      text: '##',
-    );
-
-
-    final valueController =
-        TextEditingController();
-
-
-    final result =
-        await showDialog<
-            CustomMarcField>(
-
-      context:
-          context,
-
-      builder:
-          (context) =>
-              AlertDialog(
-
-        title:
-            Text(
-          tr(
-            isArabic,
-            'Add MARC Field',
-            'إضافة حقل MARC',
-          ),
+    final result = await showDialog<CustomMarcField>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(tr(ar, 'Add MARC Field', 'إضافة حقل MARC')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: tag,
+              maxLength: 3,
+              decoration: const InputDecoration(
+                labelText: 'MARC Tag',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: ind,
+              maxLength: 2,
+              decoration: const InputDecoration(
+                labelText: 'Indicators',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: val,
+              minLines: 2,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                labelText: 'Subfields / Value',
+                hintText: r'$a Local note.',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
         ),
-
-        content:
-            SizedBox(
-
-          width: 500,
-
-          child:
-              Column(
-
-            mainAxisSize:
-                MainAxisSize
-                    .min,
-
-            children: [
-
-              TextField(
-
-                controller:
-                    tagController,
-
-                maxLength: 3,
-
-                keyboardType:
-                    TextInputType
-                        .number,
-
-                decoration:
-                    InputDecoration(
-
-                  labelText:
-                      tr(
-                    isArabic,
-                    'MARC Tag',
-                    'وسم MARC',
-                  ),
-
-                  hintText:
-                      '590',
-
-                  helperText:
-                      tr(
-                    isArabic,
-                    'Example: 246, 520, 590, 650, 700',
-                    'مثال: 246، 520، 590، 650، 700',
-                  ),
-
-                  border:
-                      const OutlineInputBorder(),
-                ),
-              ),
-
-
-              const SizedBox(
-                height: 10,
-              ),
-
-
-              TextField(
-
-                controller:
-                    indicatorsController,
-
-                maxLength: 2,
-
-                decoration:
-                    InputDecoration(
-
-                  labelText:
-                      tr(
-                    isArabic,
-                    'Indicators',
-                    'المؤشرات',
-                  ),
-
-                  hintText:
-                      '##',
-
-                  border:
-                      const OutlineInputBorder(),
-                ),
-              ),
-
-
-              const SizedBox(
-                height: 10,
-              ),
-
-
-              TextField(
-
-                controller:
-                    valueController,
-
-                minLines: 2,
-
-                maxLines: 5,
-
-                decoration:
-                    InputDecoration(
-
-                  labelText:
-                      tr(
-                    isArabic,
-                    'Subfields / Value',
-                    'الحقول الفرعية / القيمة',
-                  ),
-
-                  hintText:
-                      r'$a DPA Library local note.',
-
-                  border:
-                      const OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-        ),
-
         actions: [
-
           TextButton(
-
-            onPressed:
-                () =>
-                    Navigator.pop(
-              context,
-            ),
-
-            child:
-                Text(
-              tr(
-                isArabic,
-                'Cancel',
-                'إلغاء',
-              ),
-            ),
+            onPressed: () => Navigator.pop(context),
+            child: Text(tr(ar, 'Cancel', 'إلغاء')),
           ),
-
-
-          FilledButton.icon(
-
-            onPressed:
-                () {
-
-              final tag =
-                  tagController
-                      .text
-                      .trim();
-
-
-              String indicators =
-                  indicatorsController
-                      .text
-                      .trim();
-
-
-              final value =
-                  valueController
-                      .text
-                      .trim();
-
-
-              if (
-                indicators.isEmpty
-              ) {
-
-                indicators =
-                    '##';
-              }
-
-
-              final validation =
-                  validateCustomField(
-
-                tag:
-                    tag,
-
-                indicators:
-                    indicators,
-
-                value:
-                    value,
-              );
-
-
-              if (
-                validation != null
-              ) {
-
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(
-
-                  SnackBar(
-                    content:
-                        Text(
-                      validation,
-                    ),
-                  ),
-                );
-
+          FilledButton(
+            onPressed: () {
+              if (!RegExp(r'^\d{3}$').hasMatch(tag.text.trim()) ||
+                  val.text.trim().isEmpty) {
                 return;
               }
-
-
               Navigator.pop(
-
                 context,
-
                 CustomMarcField(
-
-                  tag:
-                      tag,
-
+                  tag: tag.text.trim(),
                   indicators:
-                      indicators,
-
-                  value:
-                      value,
+                      ind.text.trim().isEmpty ? '##' : ind.text.trim(),
+                  value: val.text.trim(),
                 ),
               );
             },
-
-            icon:
-                const Icon(
-              Icons.add,
-            ),
-
-            label:
-                Text(
-              tr(
-                isArabic,
-                'Add Field',
-                'إضافة الحقل',
-              ),
-            ),
+            child: Text(tr(ar, 'Add Field', 'إضافة الحقل')),
           ),
         ],
       ),
     );
 
+    tag.dispose();
+    ind.dispose();
+    val.dispose();
 
-    tagController
-        .dispose();
-
-    indicatorsController
-        .dispose();
-
-    valueController
-        .dispose();
-
-
-    if (
-      result != null
-    ) {
-
-      setState(() {
-
-        customFields.add(
-          result,
-        );
-      });
-    }
+    if (result != null) setState(() => customFields.add(result));
   }
 
-
-  // ==========================================================
-  // BUILD UPDATED RECORD
-  // ==========================================================
-
-  Map<String, dynamic>
-      buildUpdatedRecord() {
-
-    final updated =
-        Map<String, dynamic>
-            .from(
-      widget.record,
-    );
-
-
-    for (
-      final field
-      in fields
-    ) {
-
-      final text =
-          controllers[field]!
-              .text
-              .trim();
-
-
-      if (
-        listFields.contains(
-          field,
-        )
-      ) {
-
-        updated[field] =
-            text.isEmpty
-                ? []
-                : text
-                    .split(
-                      '\n',
-                    )
-                    .map(
-                      (
-                        line,
-                      ) =>
-                          line
-                              .trim(),
-                    )
-                    .where(
-                      (
-                        line,
-                      ) =>
-                          line
-                              .isNotEmpty,
-                    )
-                    .toList();
-
-      } else {
-
-        updated[field] =
-            text.isEmpty
-                ? null
-                : text;
-      }
-    }
-
-
-    updated[
-        'custom_fields'] =
-        customFields
-            .map(
-              (
-                item,
-              ) =>
-                  item
-                      .toJson(),
-            )
-            .toList();
-
-
-    return updated;
-  }
-
-
-  // ==========================================================
-  // SAVE
-  // ==========================================================
-
-  void saveChanges(
-    bool isArabic,
-  ) {
-
-    final updated =
-        buildUpdatedRecord();
-
-
+  void saveChanges(bool ar) {
+    final updated = buildRecord();
     widget.record
       ..clear()
-      ..addAll(
-        updated,
-      );
+      ..addAll(updated);
 
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
-
+    ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
+        content: Text(
+          tr(ar, 'MARC changes saved.', 'تم حفظ تعديلات MARC.'),
+        ),
+      ),
+    );
+  }
 
-        content:
-            Text(
-          tr(
-            isArabic,
-            'MARC changes saved.',
-            'تم حفظ تعديلات MARC.',
+  void backToMainMenu() {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  @override
+  void dispose() {
+    for (final c in controllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: appArabic,
+      builder: (context, ar, _) => Scaffold(
+        appBar: AppBar(
+          title: Text(
+            tr(ar, 'Review & Edit MARC 21', 'مراجعة وتعديل MARC 21'),
+          ),
+          actions: [
+            IconButton(
+              tooltip: tr(ar, 'Back to Main Menu', 'العودة إلى القائمة الرئيسية'),
+              onPressed: backToMainMenu,
+              icon: const Icon(Icons.home_outlined),
+            ),
+            LanguageButton(isArabic: ar),
+          ],
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Column(
+                children: [
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.fact_check_outlined, size: 30),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              tr(
+                                ar,
+                                'Review the populated MARC fields below. Empty fields are hidden to keep the screen clean.',
+                                'راجع حقول MARC المعبأة أدناه. تم إخفاء الحقول الفارغة للحفاظ على وضوح الشاشة.',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          showEmptyFields = !showEmptyFields;
+                        });
+                      },
+                      icon: Icon(
+                        showEmptyFields
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                      ),
+                      label: Text(
+                        showEmptyFields
+                            ? tr(ar, 'Hide Empty MARC Fields', 'إخفاء حقول MARC الفارغة')
+                            : tr(ar, 'Show Empty MARC Fields', 'إظهار حقول MARC الفارغة'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  for (final f in fields)
+                    if (showEmptyFields || controllers[f]!.text.trim().isNotEmpty)
+                      Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                label(f, ar),
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: controllers[f],
+                                minLines: repeatable.contains(f) ? 2 : 1,
+                                maxLines: null,
+                                decoration: const InputDecoration(
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.tonalIcon(
+                      onPressed: () => addField(ar),
+                      icon: const Icon(Icons.add_card_outlined),
+                      label: Text(
+                        tr(ar, '+ Add MARC Field', '+ إضافة حقل MARC'),
+                      ),
+                    ),
+                  ),
+                  if (customFields.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    for (int i = 0; i < customFields.length; i++)
+                      Card(
+                        child: ListTile(
+                          title: Text(
+                            '${customFields[i].tag} ${customFields[i].indicators}',
+                          ),
+                          subtitle: SelectableText(customFields[i].value),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () =>
+                                setState(() => customFields.removeAt(i)),
+                          ),
+                        ),
+                      ),
+                  ],
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => saveChanges(ar),
+                      icon: const Icon(Icons.save_outlined),
+                      label: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Text(tr(ar, 'Save Changes', 'حفظ التعديلات')),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          ReviewResult(
+                            record: buildRecord(),
+                            approved: true,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.verified_outlined),
+                      label: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Text(
+                          tr(
+                            ar,
+                            'Approve MARC Record',
+                            'اعتماد تسجيلة MARC',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton.icon(
+                      onPressed: backToMainMenu,
+                      icon: const Icon(Icons.home_outlined),
+                      label: Text(
+                        tr(ar, 'Back to Main Menu', 'العودة إلى القائمة الرئيسية'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
     );
   }
+}
+class AuthPage extends StatefulWidget {
+  const AuthPage({super.key});
 
+  @override
+  State<AuthPage> createState() => _AuthPageState();
+}
 
-  // ==========================================================
-  // APPROVE
-  // ==========================================================
+class _AuthPageState extends State<AuthPage> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
 
-  void approveRecord() {
-
-    Navigator.pop(
-
-      context,
-
-      ReviewResult(
-
-        record:
-            buildUpdatedRecord(),
-
-        approved:
-            true,
-      ),
-    );
-  }
-
-
-  // ==========================================================
-  // BACK WITHOUT APPROVAL
-  // ==========================================================
-
-  void closeWithoutApproval() {
-
-    Navigator.pop(
-
-      context,
-
-      ReviewResult(
-
-        record:
-            buildUpdatedRecord(),
-
-        approved:
-            false,
-      ),
-    );
-  }
-
-
-  // ==========================================================
-  // DISPOSE
-  // ==========================================================
+  bool _isLogin = true;
+  bool _loading = false;
+  String? _message;
 
   @override
   void dispose() {
-
-    for (
-      final controller
-      in controllers.values
-    ) {
-
-      controller
-          .dispose();
-    }
-
-
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
+  Future<void> _submit() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
 
-  // ==========================================================
-  // FIELD WIDGET
-  // ==========================================================
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        _message = 'Please enter email and password.';
+      });
+      return;
+    }
 
-  Widget buildField(
-    String field,
-    bool isArabic,
-  ) {
+    if (password.length < 8) {
+      setState(() {
+        _message = 'Password must be at least 8 characters.';
+      });
+      return;
+    }
 
-    return Card(
+    setState(() {
+      _loading = true;
+      _message = null;
+    });
 
-      margin:
-          const EdgeInsets.only(
-        bottom: 12,
+    try {
+      if (_isLogin) {
+        await Supabase.instance.client.auth.signInWithPassword(
+          email: email,
+          password: password,
+        );
+
+        if (!mounted) return;
+
+        setState(() {
+          _message = 'Signed in successfully.';
+        });
+
+        Navigator.pop(context);
+      } else {
+        final response = await Supabase.instance.client.auth.signUp(
+          email: email,
+          password: password,
+        );
+
+        if (!mounted) return;
+
+        if (response.session == null) {
+          setState(() {
+            _message =
+                'Account created. Please check your email and confirm your account.';
+          });
+        } else {
+          setState(() {
+            _message = 'Account created successfully.';
+          });
+        }
+      }
+    } on AuthException catch (e) {
+      setState(() {
+        _message = e.message;
+      });
+    } catch (e) {
+      setState(() {
+        _message = 'Something went wrong. Please try again.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ar = appArabic.value;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          tr(
+            ar,
+            _isLogin ? 'Sign In' : 'Create Account',
+            _isLogin ? 'تسجيل الدخول' : 'إنشاء حساب',
+          ),
+        ),
       ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 460,
+            ),
+            child: Card(
+              elevation: 0,
+              child: Padding(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Icon(
+                      Icons.person_outline,
+                      size: 64,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      tr(
+                        ar,
+                        _isLogin
+                            ? 'Welcome Back'
+                            : 'Create Your Create Your MARC AI Account',
+                        _isLogin
+                            ? 'مرحباً بعودتك'
+                            : 'إنشاء حساب MARC AI',
+                      ),
+                      textAlign: TextAlign.center,
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      tr(
+                        ar,
+                        _isLogin
+                            ? 'Sign in to access the MARC AI Assistant.'
+                            : 'Create an account to receive your free trial.',
+                        _isLogin
+                            ? 'سجل الدخول للوصول إلى مساعد MARC الذكي.'
+                            : 'أنشئ حساباً للحصول على التجربة المجانية.',
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 28),
+                    TextField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(
+                        labelText: tr(
+                          ar,
+                          'Email',
+                          'البريد الإلكتروني',
+                        ),
+                        prefixIcon:
+                            const Icon(Icons.email_outlined),
+                        border:
+                            const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: tr(
+                          ar,
+                          'Password',
+                          'كلمة المرور',
+                        ),
+                        prefixIcon:
+                            const Icon(Icons.lock_outline),
+                        border:
+                            const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (_message != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                          borderRadius:
+                              BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          _message!,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    FilledButton(
+                      onPressed:
+                          _loading ? null : _submit,
+                      child: Padding(
+                        padding:
+                            const EdgeInsets.symmetric(
+                          vertical: 14,
+                        ),
+                        child: _loading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child:
+                                    CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                tr(
+                                  ar,
+                                  _isLogin
+                                      ? 'Sign In'
+                                      : 'Create Account',
+                                  _isLogin
+                                      ? 'تسجيل الدخول'
+                                      : 'إنشاء حساب',
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextButton(
+                      onPressed: _loading
+                          ? null
+                          : () {
+                              setState(() {
+                                _isLogin =
+                                    !_isLogin;
+                                _message = null;
+                              });
+                            },
+                      child: Text(
+                        tr(
+                          ar,
+                          _isLogin
+                              ? 'New user? Create an account'
+                              : 'Already have an account? Sign in',
+                          _isLogin
+                              ? 'مستخدم جديد؟ أنشئ حساباً'
+                              : 'لديك حساب بالفعل؟ سجل الدخول',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      tr(
+                        ar,
+                        'Free trial: 3 MARC records per registered account.',
+                        'التجربة المجانية: 3 سجلات MARC لكل حساب مسجل.',
+                      ),
+                      textAlign: TextAlign.center,
+                      style:
+                          Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+class AccountPage extends StatelessWidget {
+  const AccountPage({super.key});
 
-      child:
-          Padding(
+  @override
+  Widget build(BuildContext context) {
+    final ar = appArabic.value;
+    final user = Supabase.instance.client.auth.currentUser;
 
-        padding:
-            const EdgeInsets.all(
-          14,
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          tr(ar, 'My Account', 'حسابي'),
+        ),
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 520,
+            ),
+            child: Card(
+              elevation: 0,
+              child: Padding(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(
+                      Icons.account_circle_outlined,
+                      size: 72,
+                    ),
+                    const SizedBox(height: 16),
+
+                    Text(
+                      tr(ar, 'MARC AI Account', 'حساب MARC AI'),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+
+                    const SizedBox(height: 28),
+
+                    ListTile(
+                      leading: const Icon(Icons.email_outlined),
+                      title: Text(
+                        tr(ar, 'Email', 'البريد الإلكتروني'),
+                      ),
+                      subtitle: Text(
+                        user?.email ?? '-',
+                      ),
+                    ),
+
+                    const Divider(),
+
+                    
+FutureBuilder<Map<String, dynamic>>(
+  future: () async {
+    final currentUser =
+        Supabase.instance.client.auth.currentUser;
+
+    if (currentUser == null) {
+      return <String, dynamic>{
+        'role': 'user',
+        'package_name': 'No package',
+        'used': 0,
+        'remaining': 0,
+        'unlimited': false,
+      };
+    }
+
+    // Get role
+    final profile = await Supabase.instance.client
+        .from('user_profiles')
+        .select('role')
+        .eq('id', currentUser.id)
+        .maybeSingle();
+
+    final role =
+        profile?['role']?.toString() ?? 'user';
+
+    // Super Admin
+    if (role == 'super_admin') {
+      return <String, dynamic>{
+        'role': role,
+        'package_name': 'Administrator',
+        'used': 0,
+        'remaining': null,
+        'unlimited': true,
+      };
+    }
+
+    // Get active subscription
+    final subscription =
+        await Supabase.instance.client
+            .from('user_subscriptions')
+            .select(
+              'package_id, records_used',
+            )
+            .eq('user_id', currentUser.id)
+            .eq('active', true)
+            .maybeSingle();
+
+    if (subscription == null) {
+      return <String, dynamic>{
+        'role': role,
+        'package_name': 'No package',
+        'used': 0,
+        'remaining': 0,
+        'unlimited': false,
+      };
+    }
+
+    final packageId =
+        subscription['package_id'];
+
+    final used =
+        (subscription['records_used'] ?? 0) as int;
+
+    // Get assigned package
+    final package =
+        await Supabase.instance.client
+            .from('packages')
+            .select()
+            .eq('id', packageId)
+            .maybeSingle();
+
+    final packageName =
+        package?['name']?.toString() ??
+        package?['code']?.toString().toUpperCase() ??
+        'Package';
+
+    final unlimited =
+        package?['unlimited'] == true;
+
+    final dynamic limitValue =
+        package?['record_limit'] ??
+        package?['records_limit'] ??
+        package?['marc_limit'];
+
+    final int limit =
+        limitValue is int
+            ? limitValue
+            : int.tryParse(
+                  limitValue?.toString() ?? '',
+                ) ??
+                0;
+
+    final remaining =
+        unlimited
+            ? null
+            : (limit - used < 0
+                ? 0
+                : limit - used);
+
+    return <String, dynamic>{
+      'role': role,
+      'package_name': packageName,
+      'used': used,
+      'remaining': remaining,
+      'unlimited': unlimited,
+    };
+  }(),
+
+  builder: (context, snapshot) {
+    if (snapshot.connectionState ==
+        ConnectionState.waiting) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    final data =
+        snapshot.data ??
+        <String, dynamic>{};
+
+    final packageName =
+        data['package_name']?.toString() ??
+        'No package';
+
+    final used =
+        data['used'] ?? 0;
+
+    final unlimited =
+        data['unlimited'] == true;
+
+    final remaining =
+        data['remaining'];
+
+    return Column(
+      children: [
+        ListTile(
+          leading: const Icon(
+            Icons.workspace_premium_outlined,
+          ),
+          title: Text(
+            tr(ar, 'Plan', 'الخطة'),
+          ),
+          subtitle: Text(packageName),
         ),
 
-        child:
-            Column(
+        const Divider(),
 
-          crossAxisAlignment:
-              CrossAxisAlignment
-                  .start,
+        ListTile(
+          leading: const Icon(
+            Icons.auto_awesome_outlined,
+          ),
+          title: Text(
+            tr(
+              ar,
+              'MARC Records Access',
+              'صلاحية سجلات MARC',
+            ),
+          ),
+          subtitle: Text(
+            unlimited
+                ? tr(
+                    ar,
+                    'Unlimited MARC records',
+                    'سجلات MARC غير محدودة',
+                  )
+                : tr(
+                    ar,
+                    'Used: $used • Remaining: ${remaining ?? 0}',
+                    'المستخدم: $used • المتبقي: ${remaining ?? 0}',
+                  ),
+          ),
+        ),
 
-          children: [
+        const Divider(),
+      ],
+    );
+  },
+),
+FutureBuilder<Map<String, dynamic>?>(
+  future: Supabase.instance.client
+      .from('user_profiles')
+      .select('role')
+      .eq(
+        'id',
+        Supabase.instance.client.auth.currentUser!.id,
+      )
+      .maybeSingle(),
+  builder: (context, snapshot) {
+    final profile = snapshot.data;
+    final role = profile?['role']?.toString();
 
-            Text(
+    final isAdmin =
+        role == 'admin' ||
+        role == 'super_admin';
 
-              fieldLabel(
-                field,
-                isArabic,
+    if (!isAdmin) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: [
+        ElevatedButton.icon(
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    const AdminDashboardPage(),
               ),
+            );
+          },
+          icon: const Icon(
+            Icons.admin_panel_settings_outlined,
+          ),
+          label: Text(
+            tr(
+              ar,
+              'Admin Dashboard',
+              'لوحة تحكم المسؤول',
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  },
+),
 
-              style:
-                  const TextStyle(
+                    FilledButton.icon(
+                      onPressed: () async {
+                        await Supabase.instance.client.auth.signOut();
 
-                fontWeight:
-                    FontWeight
-                        .bold,
+                        if (!context.mounted) return;
 
-                fontSize:
-                    15,
+                        Navigator.of(context).pop();
+                      },
+                      icon: const Icon(Icons.logout),
+                      label: Text(
+                        tr(ar, 'Sign Out', 'تسجيل الخروج'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+class AdminDashboardPage extends StatefulWidget {
+  const AdminDashboardPage({super.key});
 
+  @override
+  State<AdminDashboardPage> createState() =>
+      _AdminDashboardPageState();
+}
+
+class _AdminDashboardPageState
+    extends State<AdminDashboardPage> {
+  bool loading = true;
+  String? errorMessage;
+
+  List<Map<String, dynamic>> users = [];
+
+  final List<String> packageCodes = [
+    'free',
+    'basic',
+    'professional',
+    'institutional',
+    'admin',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    loadUsers();
+  }
+
+  Future<void> loadUsers() async {
+    setState(() {
+      loading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final result = await Supabase.instance.client
+          .rpc('admin_get_users');
+
+      final List<dynamic> data =
+          result as List<dynamic>;
+
+      setState(() {
+        users = data
+            .map(
+              (item) =>
+                  Map<String, dynamic>.from(
+                item as Map,
+              ),
+            )
+            .toList();
+
+        loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        loading = false;
+        errorMessage = e.toString();
+      });
+    }
+  }
+
+  Future<void> changePackage(
+    Map<String, dynamic> user,
+    String packageCode,
+  ) async {
+    try {
+      await Supabase.instance.client.rpc(
+        'admin_set_user_package',
+        params: {
+          'target_user_id':
+              user['user_id'],
+          'new_package_code':
+              packageCode,
+        },
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        const SnackBar(
+          content: Text(
+            'User package updated successfully.',
+          ),
+        ),
+      );
+
+      await loadUsers();
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          content: Text(
+            'Unable to change package: $e',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> changeStatus(
+    Map<String, dynamic> user,
+    String status,
+  ) async {
+    try {
+      await Supabase.instance.client.rpc(
+        'admin_set_user_status',
+        params: {
+          'target_user_id':
+              user['user_id'],
+          'new_status':
+              status,
+        },
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          content: Text(
+            'User status changed to $status.',
+          ),
+        ),
+      );
+
+      await loadUsers();
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          content: Text(
+            'Unable to change user status: $e',
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget buildUserCard(
+    Map<String, dynamic> user,
+  ) {
+    final bool unlimited =
+        user['unlimited'] == true;
+        final bool isSuperAdmin =
+    user['role']?.toString() == 'super_admin';
+
+    final int used =
+        (user['records_used'] ?? 0) as int;
+
+    final dynamic remaining =
+        user['remaining_records'];
+
+    final String packageName =
+        user['package_name']
+                ?.toString() ??
+            'No package';
+
+    final String packageCode =
+        user['package_code']
+                ?.toString() ??
+            'free';
+
+    final String status =
+        user['account_status']
+                ?.toString() ??
+            'active';
+
+    return Card(
+      margin:
+          const EdgeInsets.only(
+        bottom: 14,
+      ),
+      child: Padding(
+        padding:
+            const EdgeInsets.all(
+          18,
+        ),
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const CircleAvatar(
+                  child:
+                      Icon(
+                    Icons.person_outline,
+                  ),
+                ),
+
+                const SizedBox(
+                  width: 12,
+                ),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user['email']
+                                ?.toString() ??
+                            '-',
+                        style:
+                            const TextStyle(
+                          fontSize: 17,
+                          fontWeight:
+                              FontWeight.bold,
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height: 4,
+                      ),
+
+                      Text(
+                        'Role: ${user['role'] ?? 'user'}',
+                      ),
+                    ],
+                  ),
+                ),
+
+                Chip(
+                  label: Text(
+                    status.toUpperCase(),
+                  ),
+                ),
+              ],
+            ),
+
+            const Divider(
+              height: 30,
+            ),
+
+            Wrap(
+              spacing: 24,
+              runSpacing: 12,
+              children: [
+                Text(
+                  'Package: $packageName',
+                ),
+
+                Text(
+                  'Used: $used',
+                ),
+
+                Text(
+                  unlimited
+                      ? 'Remaining: Unlimited'
+                      : 'Remaining: ${remaining ?? 0}',
+                ),
+              ],
+            ),
 
             const SizedBox(
-              height: 8,
+              height: 18,
             ),
 
-
-            TextField(
-
-              controller:
-                  controllers[
-                      field],
-
-              minLines:
-                  listFields
-                          .contains(
-                            field,
-                          )
-                      ? 2
-                      : 1,
-
-              maxLines:
-                  null,
-
+            DropdownButtonFormField<String>(
+              value:
+                  packageCodes.contains(
+                packageCode,
+              )
+                      ? packageCode
+                      : 'free',
               decoration:
-                  InputDecoration(
-
-                hintText:
-                    listFields
-                            .contains(
-                              field,
-                            )
-                        ? tr(
-                            isArabic,
-                            'One MARC entry per line',
-                            'إدخال MARC واحد في كل سطر',
-                          )
-                        : tr(
-                            isArabic,
-                            'Enter MARC field',
-                            'أدخل حقل MARC',
-                          ),
-
+                  const InputDecoration(
+                labelText:
+                    'Assign Package',
                 border:
-                    const OutlineInputBorder(),
+                    OutlineInputBorder(),
               ),
+              items:
+                  packageCodes
+                      .map(
+                        (code) =>
+                            DropdownMenuItem(
+                          value: code,
+                          child: Text(
+                            code.toUpperCase(),
+                          ),
+                        ),
+                      )
+                      .toList(),
+              onChanged: isSuperAdmin
+    ? null
+    : (value) async {
+        if (value == null || value == packageCode) {
+          return;
+        }
+
+        await changePackage(
+          user,
+          value,
+        );
+      },
+            ),
+
+            const SizedBox(
+              height: 14,
+            ),
+
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: isSuperAdmin
+    ? null
+    : status == 'active'
+        ? null
+        : () => changeStatus(
+              user,
+              'active',
+            ),
+                  icon:
+                      const Icon(
+                    Icons.check_circle_outline,
+                  ),
+                  label:
+                      const Text(
+                    'Activate',
+                  ),
+                ),
+
+                OutlinedButton.icon(
+                  onPressed: isSuperAdmin
+    ? null
+    : status == 'suspended'
+        ? null
+        : () => changeStatus(
+              user,
+              'suspended',
+            ),
+                  icon:
+                      const Icon(
+                    Icons.pause_circle_outline,
+                  ),
+                  label:
+                      const Text(
+                    'Suspend',
+                  ),
+                ),
+
+                OutlinedButton.icon(
+                  onPressed: isSuperAdmin
+    ? null
+    : status == 'disabled'
+        ? null
+        : () => changeStatus(
+              user,
+              'disabled',
+            ),
+                  icon:
+                      const Icon(
+                    Icons.block_outlined,
+                  ),
+                  label:
+                      const Text(
+                    'Disable',
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -4409,454 +4192,76 @@ class _MarcReviewPageState
     );
   }
 
-
-  // ==========================================================
-  // REVIEW PAGE BUILD
-  // ==========================================================
-
   @override
   Widget build(
     BuildContext context,
   ) {
-
-    return ValueListenableBuilder<
-        bool>(
-
-      valueListenable:
-          appArabic,
-
-      builder: (
-        context,
-        isArabic,
-        child,
-      ) {
-
-        return Scaffold(
-
-          appBar:
-              AppBar(
-
-            leading:
-                IconButton(
-
-              icon:
-                  const Icon(
-                Icons
-                    .arrow_back,
-              ),
-
-              onPressed:
-                  closeWithoutApproval,
+    return Scaffold(
+      appBar: AppBar(
+        title:
+            const Text(
+          'MARC AI Admin Dashboard',
+        ),
+        actions: [
+          IconButton(
+            tooltip:
+                'Refresh',
+            onPressed:
+                loadUsers,
+            icon:
+                const Icon(
+              Icons.refresh,
             ),
-
-            title:
-                Text(
-              tr(
-                isArabic,
-                'Review & Edit MARC 21',
-                'مراجعة وتعديل MARC 21',
-              ),
-            ),
-
-            actions: [
-
-              LanguageButton(
-                isArabic:
-                    isArabic,
-              ),
-            ],
           ),
+        ],
+      ),
 
-
-          body:
-              SingleChildScrollView(
-
-            padding:
-                const EdgeInsets.all(
-              20,
-            ),
-
-            child:
-                Center(
-
-              child:
-                  ConstrainedBox(
-
-                constraints:
-                    const BoxConstraints(
-                  maxWidth:
-                      900,
-                ),
-
-                child:
-                    Column(
-
-                  children: [
-
-                    Card(
-
+      body:
+          loading
+              ? const Center(
+                  child:
+                      CircularProgressIndicator(),
+                )
+              : errorMessage != null
+                  ? Center(
                       child:
                           Padding(
-
                         padding:
                             const EdgeInsets.all(
-                          18,
+                          24,
                         ),
-
-                        child:
-                            Row(
-
-                          children: [
-
-                            const Icon(
-                              Icons
-                                  .fact_check_outlined,
-                              size: 34,
-                            ),
-
-
-                            const SizedBox(
-                              width: 14,
-                            ),
-
-
-                            Expanded(
-
-                              child:
-                                  Text(
-
-                                tr(
-                                  isArabic,
-                                  'Review all AI-generated MARC fields. Correct them if required, add additional fields, then approve the record.',
-                                  'راجع جميع حقول MARC التي أنشأها الذكاء الاصطناعي، وصححها عند الحاجة، وأضف الحقول الإضافية، ثم اعتمد التسجيلة.',
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-
-                    const SizedBox(
-                      height: 18,
-                    ),
-
-
-                    for (
-                      final field
-                      in fields
-                    )
-
-                      buildField(
-                        field,
-                        isArabic,
-                      ),
-
-
-                    SizedBox(
-
-                      width:
-                          double
-                              .infinity,
-
-                      child:
-                          FilledButton
-                              .tonalIcon(
-
-                        onPressed:
-                            () =>
-                                addMarcField(
-                          isArabic,
-                        ),
-
-                        icon:
-                            const Icon(
-                          Icons
-                              .add_card_outlined,
-                        ),
-
-                        label:
-                            Padding(
-
-                          padding:
-                              const EdgeInsets.all(
-                            13,
-                          ),
-
-                          child:
-                              Text(
-
-                            tr(
-                              isArabic,
-                              '+ Add MARC Field',
-                              '+ إضافة حقل MARC',
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-
-
-                    if (
-                      customFields
-                          .isNotEmpty
-                    ) ...[
-
-                      const SizedBox(
-                        height: 18,
-                      ),
-
-
-                      Align(
-
-                        alignment:
-                            Alignment
-                                .centerLeft,
-
                         child:
                             Text(
-
-                          tr(
-                            isArabic,
-                            'Additional MARC Fields',
-                            'حقول MARC الإضافية',
-                          ),
-
-                          style:
-                              const TextStyle(
-
-                            fontSize:
-                                18,
-
-                            fontWeight:
-                                FontWeight
-                                    .bold,
-                          ),
+                          errorMessage!,
+                          textAlign:
+                              TextAlign.center,
                         ),
                       ),
-
-
-                      const SizedBox(
-                        height: 10,
-                      ),
-
-
-                      for (
-                        int index =
-                            0;
-                        index <
-                            customFields
-                                .length;
-                        index++
-                      )
-
-                        Card(
-
-                          child:
-                              ListTile(
-
-                            leading:
-                                const Icon(
-                              Icons
-                                  .add_card,
-                            ),
-
-                            title:
-                                Text(
-                              '${customFields[index].tag} ${customFields[index].indicators}',
-                            ),
-
-                            subtitle:
-                                SelectableText(
-                              customFields[
-                                      index]
-                                  .value,
-                            ),
-
-                            trailing:
-                                IconButton(
-
-                              icon:
-                                  const Icon(
-                                Icons
-                                    .delete_outline,
-                              ),
-
-                              onPressed:
-                                  () {
-
-                                setState(
-                                  () {
-
-                                    customFields
-                                        .removeAt(
-                                      index,
-                                    );
-                                  },
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                    ],
-
-
-                    const SizedBox(
-                      height: 20,
-                    ),
-
-
-                    SizedBox(
-
-                      width:
-                          double
-                              .infinity,
-
-                      child:
-                          OutlinedButton
-                              .icon(
-
-                        onPressed:
-                            () =>
-                                saveChanges(
-                          isArabic,
-                        ),
-
-                        icon:
-                            const Icon(
-                          Icons
-                              .save_outlined,
-                        ),
-
-                        label:
-                            Padding(
-
-                          padding:
-                              const EdgeInsets.all(
-                            14,
-                          ),
-
+                    )
+                  : users.isEmpty
+                      ? const Center(
                           child:
                               Text(
-
-                            tr(
-                              isArabic,
-                              'Save Changes',
-                              'حفظ التعديلات',
-                            ),
+                            'No users found.',
                           ),
-                        ),
-                      ),
-                    ),
-
-
-                    const SizedBox(
-                      height: 12,
-                    ),
-
-
-                    SizedBox(
-
-                      width:
-                          double
-                              .infinity,
-
-                      child:
-                          FilledButton
-                              .icon(
-
-                        onPressed:
-                            approveRecord,
-
-                        icon:
-                            const Icon(
-                          Icons
-                              .verified_outlined,
-                        ),
-
-                        label:
-                            Padding(
-
+                        )
+                      : ListView.builder(
                           padding:
                               const EdgeInsets.all(
-                            14,
+                            18,
                           ),
-
-                          child:
-                              Text(
-
-                            tr(
-                              isArabic,
-                              'Approve MARC Record',
-                              'اعتماد تسجيلة MARC',
-                            ),
-                          ),
+                          itemCount:
+                              users.length,
+                          itemBuilder:
+                              (
+                            context,
+                            index,
+                          ) {
+                            return buildUserCard(
+                              users[index],
+                            );
+                          },
                         ),
-                      ),
-                    ),
-
-
-                    const SizedBox(
-                      height: 25,
-                    ),
-
-
-                    const Divider(),
-
-
-                    const SizedBox(
-                      height: 10,
-                    ),
-
-
-                    Text(
-
-                      tr(
-                        isArabic,
-                        'DPA Library AI MARC Cataloguing Project',
-                        'مشروع الفهرسة الذكية MARC للمكتبة',
-                      ),
-
-                      textAlign:
-                          TextAlign
-                              .center,
-
-                      style:
-                          const TextStyle(
-
-                        fontWeight:
-                            FontWeight
-                                .w600,
-                      ),
-                    ),
-
-
-                    const SizedBox(
-                      height: 5,
-                    ),
-
-
-                    Text(
-
-                      tr(
-                        isArabic,
-                        'Project by Yameen Abdullah',
-                        'المشروع بواسطة يامين عبدالله',
-                      ),
-                    ),
-
-
-                    const SizedBox(
-                      height: 20,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }
