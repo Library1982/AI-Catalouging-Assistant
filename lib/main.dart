@@ -1891,7 +1891,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static const backendBaseUrl = 'https://dpa-marc-api.onrender.com';
+  static const backendBaseUrl = 'http://127.0.0.1:8000';
 
   final List<PlatformFile> selectedFiles = [];
   Map<String, dynamic>? marcRecord;
@@ -2121,7 +2121,138 @@ if (data['success'] == true && data['record'] != null) {
       }
     });
   }
+Future<void> generateAiSummary(bool ar) async {
+  if (selectedFiles.isEmpty) {
+    showMessage(
+      tr(
+        ar,
+        'Please upload one or more pages first.',
+        'يرجى رفع صورة أو ملف PDF واحد على الأقل أولاً.',
+      ),
+    );
+    return;
+  }
 
+  if (selectedFiles.any((f) => f.bytes == null)) {
+    showMessage(
+      tr(
+        ar,
+        'Unable to read one or more selected files.',
+        'تعذر قراءة ملف واحد أو أكثر من الملفات المحددة.',
+      ),
+    );
+    return;
+  }
+
+  setState(() {
+    isAnalyzing = true;
+    statusEnglish = 'AI is generating the summary / abstract...';
+    statusArabic = 'يقوم الذكاء الاصطناعي بإنشاء الملخص...';
+  });
+
+  try {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$backendBaseUrl/marc/summary'),
+    );
+
+    // Send all uploaded images/PDFs
+    for (final f in selectedFiles) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'files',
+          f.bytes!,
+          filename: f.name,
+        ),
+      );
+    }
+
+    request.fields['language'] = ar ? 'ar' : 'en';
+    request.fields['length'] = 'standard';
+
+    // Existing MARC record can help the AI understand the item
+    if (marcRecord != null) {
+      request.fields['marc_record'] = jsonEncode(marcRecord);
+    }
+
+    final response = await request.send();
+    final body = await response.stream.bytesToString();
+
+    dynamic decoded;
+
+    try {
+      decoded = jsonDecode(body);
+    } catch (_) {
+      throw Exception('Invalid server response: $body');
+    }
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final message =
+          decoded is Map && decoded['message'] != null
+              ? decoded['message'].toString()
+              : 'Summary generation failed.';
+
+      throw Exception(message);
+    }
+
+    if (decoded is! Map) {
+      throw Exception('Invalid summary response.');
+    }
+
+    final success = decoded['success'] == true;
+
+    if (!success) {
+      throw Exception(
+        decoded['message']?.toString() ??
+            'Unable to generate AI summary.',
+      );
+    }
+
+    final summary = decoded['summary']?.toString().trim() ?? '';
+
+    if (summary.isEmpty) {
+      throw Exception('The AI returned an empty summary.');
+    }
+
+    setState(() {
+      marcRecord ??= <String, dynamic>{};
+
+      // MARC 21 field 520
+      marcRecord!['field_520'] = '520 ## \$a $summary';
+
+      isReviewed = false;
+
+      statusEnglish =
+          'AI Summary generated successfully and added to MARC field 520.';
+      statusArabic =
+          'تم إنشاء الملخص وإضافته بنجاح إلى حقل MARC 520.';
+    });
+
+    showMessage(
+      tr(
+        ar,
+        'AI Summary generated and added to MARC 520.',
+        'تم إنشاء الملخص وإضافته إلى حقل MARC 520.',
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    showMessage(
+      tr(
+        ar,
+        'Unable to generate AI summary: $e',
+        'تعذر إنشاء الملخص بالذكاء الاصطناعي: $e',
+      ),
+    );
+  } finally {
+    if (mounted) {
+      setState(() {
+        isAnalyzing = false;
+      });
+    }
+  }
+}
   String recordTitle(Map<String, dynamic> record) {
     String t = record['field_245']?.toString().trim() ?? '';
     if (t.isEmpty) return 'Untitled MARC record';
@@ -2480,11 +2611,29 @@ if (!allowed) {
 loading: isAnalyzing,
                   ),
                   actionCard(
+  Icons.summarize_outlined,
+  tr(
+    ar,
+    '3. Generate AI Summary / Abstract',
+    '3. إنشاء الملخص بالذكاء الاصطناعي',
+  ),
+ tr(
+  ar,
+  'AI creates a summary from the uploaded images/PDF and prepares MARC field 520.',
+  'ينشئ الذكاء الاصطناعي ملخصاً من الصور أو ملفات PDF المرفوعة ويجهز حقل MARC 520.',
+),
+isAnalyzing
+    ? null
+    : () => generateAiSummary(ar),
+),
+
+
+                  actionCard(
                     Icons.fact_check_outlined,
                     tr(
                       ar,
-                      '3. Review & Edit MARC',
-                      '3. مراجعة وتعديل MARC',
+                      '4. Review & Edit MARC',
+                      '4. مراجعة وتعديل MARC',
                     ),
                     tr(
                       ar,
@@ -2497,8 +2646,8 @@ loading: isAnalyzing,
                     Icons.add_shopping_cart,
                     tr(
                       ar,
-                      '4. Add Approved Record to Cart',
-                      '4. إضافة التسجيلة المعتمدة إلى السلة',
+                      '5. Add Approved Record to Cart',
+                      '5. إضافة التسجيلة المعتمدة إلى السلة',
                     ),
                     isReviewed
                         ? tr(
@@ -2793,6 +2942,7 @@ class _MarcReviewPageState extends State<MarcReviewPage> {
     'field_502',
     'field_504',
     'field_505',
+    'field_520',
     'field_600',
     'field_610',
     'field_650',
@@ -2862,7 +3012,14 @@ class _MarcReviewPageState extends State<MarcReviewPage> {
         ar,
         '504 — Bibliographical References / Index',
         '504 — المراجع الببليوجرافية / الكشاف',
+        
       ),
+      
+'field_520': tr(
+  ar,
+  '520 – Summary / Abstract',
+  '520 – الملخص / المستخلص',
+),
       'field_505': tr(ar, '505 — Contents Note', '505 — ملاحظة المحتويات'),
       'field_600': tr(
         ar,
@@ -3268,37 +3425,114 @@ class _AuthPageState extends State<AuthPage> {
 
     try {
       if (_isLogin) {
-        await Supabase.instance.client.auth.signInWithPassword(
-          email: email,
-          password: password,
-        );
+  // 1. Authenticate email + password
+  final authResponse =
+      await Supabase.instance.client.auth.signInWithPassword(
+    email: email,
+    password: password,
+  );
 
-        if (!mounted) return;
+  final user = authResponse.user;
 
-        setState(() {
-          _message = 'Signed in successfully.';
-        });
+  if (user == null) {
+    throw Exception('Unable to authenticate this account.');
+  }
 
-        Navigator.pop(context);
-      } else {
-        final response = await Supabase.instance.client.auth.signUp(
-          email: email,
-          password: password,
-        );
+  // 2. Read approval status from user_profiles
+  final profile = await Supabase.instance.client
+      .from('user_profiles')
+      .select('account_status, role')
+      .eq('id', user.id)
+      .maybeSingle();
 
-        if (!mounted) return;
+  if (profile == null) {
+    await Supabase.instance.client.auth.signOut();
+    throw Exception(
+      'User profile was not found. Please contact the administrator.',
+    );
+  }
 
-        if (response.session == null) {
-          setState(() {
-            _message =
-                'Account created. Please check your email and confirm your account.';
-          });
-        } else {
-          setState(() {
-            _message = 'Account created successfully.';
-          });
-        }
-      }
+  final accountStatus =
+      (profile['account_status'] ?? '').toString().toLowerCase();
+
+  // 3. Block accounts that have not been approved
+  if (accountStatus == 'pending') {
+    await Supabase.instance.client.auth.signOut();
+
+    throw Exception(
+      'Your registration is awaiting administrator approval.',
+    );
+  }
+
+  if (accountStatus == 'rejected') {
+    await Supabase.instance.client.auth.signOut();
+
+    throw Exception(
+      'Your registration request has been rejected. Please contact the administrator.',
+    );
+  }
+
+  if (accountStatus == 'suspended') {
+    await Supabase.instance.client.auth.signOut();
+
+    throw Exception(
+      'Your account has been suspended. Please contact the administrator.',
+    );
+  }
+
+  if (accountStatus != 'active' &&
+    accountStatus != 'approved') {
+  await Supabase.instance.client.auth.signOut();
+
+  throw Exception(
+    'Your account is not authorized to access this system.',
+  );
+}
+
+  // 4. Only approved accounts reach here
+  if (!mounted) return;
+
+  setState(() {
+    _message = 'Signed in successfully.';
+  });
+
+  Navigator.pop(context);
+} else {
+  final response = await Supabase.instance.client.auth.signUp(
+    email: email,
+    password: password,
+  );
+
+  final newUser = response.user;
+
+  if (newUser == null) {
+    throw Exception(
+      'Unable to create the account. Please try again.',
+    );
+  }
+
+  // If Supabase automatically created a session,
+  // immediately sign the new user out.
+  // The user must first be approved by an administrator.
+  if (response.session != null) {
+    await Supabase.instance.client.auth.signOut();
+  }
+
+  if (!mounted) return;
+
+  setState(() {
+    if (response.session == null) {
+      _message =
+          'Registration submitted successfully. '
+          'Please confirm your email if required. '
+          'Your account is awaiting administrator approval.';
+    } else {
+      _message =
+          'Registration submitted successfully. '
+          'Your account is awaiting administrator approval.';
+    }
+  });
+}
     } on AuthException catch (e) {
       setState(() {
         _message = e.message;
@@ -4203,17 +4437,27 @@ class _AdminDashboardPageState
           'MARC AI Admin Dashboard',
         ),
         actions: [
-          IconButton(
-            tooltip:
-                'Refresh',
-            onPressed:
-                loadUsers,
-            icon:
-                const Icon(
-              Icons.refresh,
-            ),
-          ),
-        ],
+  IconButton(
+    tooltip: 'User Management',
+    icon: const Icon(Icons.manage_accounts_outlined),
+    onPressed: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const AdminUserManagementPage(),
+        ),
+      );
+    },
+  ),
+
+  IconButton(
+    tooltip: 'Refresh',
+    onPressed: loadUsers,
+    icon: const Icon(
+      Icons.refresh,
+    ),
+  ),
+],
       ),
 
       body:
@@ -4265,3 +4509,217 @@ class _AdminDashboardPageState
     );
   }
 }
+class AdminUserManagementPage extends StatefulWidget {
+  const AdminUserManagementPage({super.key});
+
+  @override
+  State<AdminUserManagementPage> createState() =>
+      _AdminUserManagementPageState();
+}
+
+class _AdminUserManagementPageState
+    extends State<AdminUserManagementPage> {
+  bool loading = true;
+  String? error;
+  List<Map<String, dynamic>> users = [];
+
+  @override
+  void initState() {
+    super.initState();
+    loadUsers();
+  }
+
+  Future<void> loadUsers() async {
+    try {
+      setState(() {
+        loading = true;
+        error = null;
+      });
+
+      final result =
+          await Supabase.instance.client.rpc('admin_list_users');
+
+      final data = List<Map<String, dynamic>>.from(result as List);
+
+      if (!mounted) return;
+
+      setState(() {
+        users = data;
+        loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        loading = false;
+        error = e.toString();
+      });
+    }
+  }
+
+  Future<void> changeStatus(
+    String userId,
+    String newStatus,
+  ) async {
+    try {
+      await Supabase.instance.client.rpc(
+        'admin_set_account_status',
+        params: {
+          'target_user_id': userId,
+          'new_status': newStatus,
+        },
+      );
+
+      await loadUsers();
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unable to update user: $e'),
+        ),
+      );
+    }
+  }
+
+  String readableStatus(String status) {
+    switch (status) {
+      case 'pending':
+        return 'Pending approval';
+      case 'approved':
+        return 'Approved';
+      case 'rejected':
+        return 'Rejected';
+      case 'suspended':
+        return 'Suspended';
+      default:
+        return status;
+    }
+  }
+
+  Widget buildActions(Map<String, dynamic> user) {
+    final id = user['id'].toString();
+    final status = user['account_status']?.toString() ?? '';
+
+    if (status == 'pending') {
+      return Wrap(
+        spacing: 8,
+        children: [
+          ElevatedButton(
+            onPressed: () => changeStatus(id, 'approved'),
+            child: const Text('Approve'),
+          ),
+          OutlinedButton(
+            onPressed: () => changeStatus(id, 'rejected'),
+            child: const Text('Reject'),
+          ),
+        ],
+      );
+    }
+
+    if (status == 'approved') {
+      return OutlinedButton(
+        onPressed: () => changeStatus(id, 'suspended'),
+        child: const Text('Suspend'),
+      );
+    }
+
+    if (status == 'suspended' || status == 'rejected') {
+      return ElevatedButton(
+        onPressed: () => changeStatus(id, 'approved'),
+        child: const Text('Reactivate'),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('User Management'),
+        actions: [
+          IconButton(
+            onPressed: loadUsers,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: loading
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      error!,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: users.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final user = users[index];
+
+                    final email =
+                        user['email']?.toString() ?? 'No email';
+
+                    final role =
+                        user['role']?.toString() ?? 'user';
+
+                    final status =
+                        user['account_status']?.toString() ?? '';
+
+                    return Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.center,
+                          children: [
+                            const CircleAvatar(
+                              child: Icon(Icons.person),
+                            ),
+                            const SizedBox(width: 16),
+
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    email,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Role: $role',
+                                  ),
+                                  Text(
+                                    'Status: ${readableStatus(status)}',
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            buildActions(user),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+    );
+  }
+}
+
