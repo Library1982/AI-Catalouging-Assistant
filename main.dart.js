@@ -45696,7 +45696,7 @@ break}if(B.b.e8(b2,new A.as3())){m.fD(b4?u.X:u.x)
 s=1
 break}m.X(new A.as4(m))
 p=4
-l=A.aIo("POST",A.d4("http://127.0.0.1:8000/marc/analyze",0,null))
+l=A.aIo("POST",A.d4("https://dpa-marc-api.onrender.com/marc/analyze",0,null))
 for(b=b2.length,a=t.zb,a0=t.G5,a1=t.N,a2=a.i("cX<1>"),a3=0;a3<b2.length;b2.length===b||(0,A.y)(b2),++a3){k=b2[a3]
 a4=l.y
 a5=k.c
@@ -45796,7 +45796,7 @@ break}if(B.b.e8(b2,new A.as_())){m.fD(b4?u.X:u.x)
 s=1
 break}m.X(new A.as0(m))
 p=4
-l=A.aIo("POST",A.d4("http://127.0.0.1:8000/marc/summary",0,null))
+l=A.aIo("POST",A.d4("https://dpa-marc-api.onrender.com/marc/summary",0,null))
 for(c=b2.length,b=t.zb,a=t.G5,a0=t.N,a1=b.i("cX<1>"),a2=0;a2<b2.length;b2.length===c||(0,A.y)(b2),++a2){k=b2[a2]
 a3=l.y
 a4=k.c
@@ -46022,7 +46022,7 @@ s.y="\u062a\u0645\u062a \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u062a\u0633\
 $S:0}
 A.asa.prototype={
 $1(a){var s=this.a
-return new A.q9(s.f,"http://127.0.0.1:8000",s.gawK(),s.gawJ(),new A.as9(s),null)},
+return new A.q9(s.f,"https://dpa-marc-api.onrender.com",s.gawK(),s.gawJ(),new A.as9(s),null)},
 $S:364}
 A.as9.prototype={
 $0(){var s=this.a
