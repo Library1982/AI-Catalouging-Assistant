@@ -2739,7 +2739,7 @@ class _MarcCartPageState extends State<MarcCartPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
   }
 
-  Future<void> exportAll(bool ar) async {
+  Future<void> exportAll(bool ar, {required bool marc}) async {
     if (widget.records.isEmpty) return;
 
     final count = widget.records.length;
@@ -2749,15 +2749,15 @@ class _MarcCartPageState extends State<MarcCartPage> {
         title: Text(
           tr(
             ar,
-            'Download Master MARC Excel',
-            'تنزيل ملف Excel الرئيسي لـ MARC',
+            marc ? 'Download MARC 21 file' : 'Download Master MARC Excel',
+            marc ? 'تنزيل ملف MARC 21' : 'تنزيل ملف Excel الرئيسي لـ MARC',
           ),
         ),
         content: Text(
           tr(
             ar,
-            'Create one Excel workbook containing all $count approved record(s)? The cart will be cleared after successful download.',
-            'هل تريد إنشاء ملف Excel واحد يحتوي على جميع التسجيلات المعتمدة وعددها $count؟ سيتم تفريغ السلة بعد نجاح التنزيل.',
+            'Download all $count approved record(s) as ${marc ? 'MARC 21 (.mrc)' : 'Excel (.xlsx)'}? The records will stay in the cart so you can download the other format too.',
+            'تنزيل جميع التسجيلات المعتمدة وعددها $count بصيغة ${marc ? 'MARC 21 (.mrc)' : 'Excel (.xlsx)'}؟ ستبقى التسجيلات في السلة لتنزيل الصيغة الأخرى أيضاً.',
           ),
         ),
         actions: [
@@ -2767,7 +2767,7 @@ class _MarcCartPageState extends State<MarcCartPage> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(tr(ar, 'Download Excel', 'تنزيل Excel')),
+            child: Text(tr(ar, marc ? 'Download MARC' : 'Download Excel', marc ? 'تنزيل MARC' : 'تنزيل Excel')),
           ),
         ],
       ),
@@ -2779,19 +2779,19 @@ class _MarcCartPageState extends State<MarcCartPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('${widget.backendBaseUrl}/marc/export-batch'),
+        Uri.parse('${widget.backendBaseUrl}/marc/${marc ? 'export-mrc' : 'export-batch'}'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'records': widget.records}),
       );
 
       if (response.statusCode != 200) {
         showMessage(
-          tr(ar, 'Unable to create Excel workbook.', 'تعذر إنشاء ملف Excel.'),
+          tr(ar, 'Unable to create ${marc ? 'MARC file' : 'Excel workbook'}.', 'تعذر إنشاء ملف ${marc ? 'MARC' : 'Excel'}.'),
         );
         return;
       }
 
-      String filename = 'DPA_MARC_Master.xlsx';
+      String filename = marc ? 'DPA_MARC_Master.mrc' : 'DPA_MARC_Master.xlsx';
       final disposition = response.headers['content-disposition'];
       if (disposition != null) {
         final match =
@@ -2803,8 +2803,9 @@ class _MarcCartPageState extends State<MarcCartPage> {
       final blob = web.Blob(
         <JSAny>[bytes.toJS].toJS,
         web.BlobPropertyBag(
-          type:
-              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          type: marc
+              ? 'application/marc'
+              : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ),
       );
       final objectUrl = web.URL.createObjectURL(blob);
@@ -2816,8 +2817,6 @@ class _MarcCartPageState extends State<MarcCartPage> {
       anchor.parentNode?.removeChild(anchor);
       web.URL.revokeObjectURL(objectUrl);
 
-      setState(() => widget.records.clear());
-      widget.onCartChanged();
     } catch (e) {
       showMessage(tr(ar, 'Export error: $e', 'خطأ في التصدير: $e'));
     } finally {
@@ -2873,29 +2872,24 @@ class _MarcCartPageState extends State<MarcCartPage> {
                     top: false,
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: exporting ? null : () => exportAll(ar),
-                          icon: exporting
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.download_outlined),
-                          label: Padding(
-                            padding: const EdgeInsets.all(14),
-                            child: Text(
-                              tr(
-                                ar,
-                                'Download All ${widget.records.length} Records as Excel',
-                                'تنزيل جميع التسجيلات وعددها ${widget.records.length} كملف Excel',
-                              ),
-                            ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: exporting ? null : () => exportAll(ar, marc: false),
+                            icon: exporting ? const SizedBox(
+                              width: 20, height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ) : const Icon(Icons.table_view_outlined),
+                            label: Text(tr(ar, 'Download Excel (.xlsx)', 'تنزيل Excel (.xlsx)')),
                           ),
-                        ),
+                          const SizedBox(height: 10),
+                          OutlinedButton.icon(
+                            onPressed: exporting ? null : () => exportAll(ar, marc: true),
+                            icon: const Icon(Icons.download_outlined),
+                            label: Text(tr(ar, 'Download MARC 21 (.mrc)', 'تنزيل MARC 21 (.mrc)')),
+                          ),
+                        ],
                       ),
                     ),
                   ),
