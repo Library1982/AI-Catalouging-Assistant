@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:typed_data';
 import 'catalogue_showcase_panel.dart';
+import 'cataloguing_wizard_panel.dart';
+import 'book_review_preview_pane.dart';
 import 'marc_review_title_panel.dart';
 
 import 'package:file_picker/file_picker.dart';
@@ -1902,6 +1904,25 @@ class _HomePageState extends State<HomePage> {
   bool isAnalyzing = false;
   bool isReviewed = false;
   String showcaseDraftTitle = '';
+  int wizardStep = 0;
+
+  int get wizardMaxStep {
+    if (selectedFiles.isEmpty) return 0;
+    if (marcRecord == null) return 1;
+    return isReviewed ? 4 : 3;
+  }
+
+  void goToWizardStep(int requestedStep) {
+    if (isAnalyzing) return;
+    if (requestedStep < 0 || requestedStep > wizardMaxStep) return;
+    setState(() => wizardStep = requestedStep);
+  }
+
+  void skipWizardSummary() {
+    if (marcRecord == null || isAnalyzing) return;
+    setState(() => wizardStep = 3);
+  }
+
 
   Uint8List? get showcaseCover {
     for (final file in selectedFiles) {
@@ -1938,6 +1959,7 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         if (selectedFiles.isEmpty) showcaseDraftTitle = '';
         selectedFiles.addAll(result.files);
+        wizardStep = 1;
         marcRecord = null;
         isReviewed = false;
         statusEnglish =
@@ -1956,6 +1978,7 @@ class _HomePageState extends State<HomePage> {
   void removeFile(int index) {
     setState(() {
       selectedFiles.removeAt(index);
+      wizardStep = selectedFiles.isEmpty ? 0 : 1;
       if (selectedFiles.isEmpty) showcaseDraftTitle = '';
       marcRecord = null;
       isReviewed = false;
@@ -1973,12 +1996,66 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       selectedFiles.clear();
       showcaseDraftTitle = '';
+      wizardStep = 0;
       marcRecord = null;
       isReviewed = false;
       statusEnglish = 'Files cleared. Ready for a new item.';
       statusArabic = 'تم مسح الملفات. جاهز لمادة جديدة.';
     });
   }
+
+  Future<void> checkCreditsAndGenerateMarc(bool ar) async {
+        try {
+          final result = await Supabase.instance.client
+    .rpc('check_marc_credit');
+
+final data = Map<String, dynamic>.from(result as Map);
+
+final bool allowed = data['allowed'] == true;
+final bool unlimited = data['unlimited'] == true;
+final int used = (data['used'] as num?)?.toInt() ?? 0;
+final int remaining = (data['remaining'] as num?)?.toInt() ?? 0;
+final String packageName =
+    data['package_name']?.toString() ?? 'Unknown';
+
+if (!allowed) {
+  if (!mounted) return;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        tr(
+          ar,
+          'Your $packageName MARC record limit has been reached.',
+          'لقد وصلت إلى الحد الأقصى لسجلات MARC في باقة $packageName.',
+        ),
+      ),
+    ),
+  );
+
+  return;
+}
+
+          
+
+          await generateMarcRecord(ar);
+  } catch (e, stackTrace) {
+  debugPrint('MARC ACCESS ERROR TYPE: ${e.runtimeType}');
+  debugPrint('MARC ACCESS ERROR: $e');
+  debugPrint('MARC ACCESS STACK: $stackTrace');
+
+  if (!mounted) return;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      duration: const Duration(seconds: 10),
+      content: Text(
+        'MARC access error [${e.runtimeType}]: $e',
+      ),
+    ),
+  );
+}
+}
 
   Future<void> generateMarcRecord(bool ar) async {
     if (selectedFiles.isEmpty) {
@@ -2070,6 +2147,7 @@ if (data['success'] == true && data['record'] != null) {
 
   setState(() {
     marcRecord = record;
+    wizardStep = 2;
     statusEnglish =
         'MARC 21 record generated successfully. Librarian review is required.';
     statusArabic =
@@ -2129,6 +2207,7 @@ if (data['success'] == true && data['record'] != null) {
     setState(() {
       marcRecord = result.record;
       isReviewed = result.approved;
+      wizardStep = result.approved ? 4 : 3;
       if (result.approved) {
         statusEnglish =
             'MARC record reviewed and approved. Ready to add to Master Cart.';
@@ -2240,6 +2319,7 @@ Future<void> generateAiSummary(bool ar) async {
       marcRecord!['field_520'] = '520 ## \$a $summary';
 
       isReviewed = false;
+      wizardStep = 3;
 
       statusEnglish =
           'AI Summary generated successfully and added to MARC field 520.';
@@ -2330,6 +2410,7 @@ Future<void> generateAiSummary(bool ar) async {
 
     setState(() {
       marcCart.add(copy);
+      wizardStep = 0;
       selectedFiles.clear();
       showcaseDraftTitle = '';
       marcRecord = null;
@@ -2471,255 +2552,25 @@ Future<void> generateAiSummary(bool ar) async {
                     recordTitle: recordTitle,
                     recordAuthor: recordAuthor,
                   ),
-                  const SizedBox(height: 18),
-                  Container(
-                    width: 105,
-                    height: 105,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.local_library_outlined, size: 58),
-                  ),
-                  const SizedBox(height: 22),
-                  Text(
-                    tr(
-                      ar,
-                      'AI MARC 21 Cataloguing Assistant',
-                      'مساعد الفهرسة الذكي MARC 21',
-                    ),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    tr(
-                      ar,
-                      'Arabic & English Books, Theses and Dissertations',
-                      'الكتب والرسائل والأطروحات باللغة العربية والإنجليزية',
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  actionCard(
-                    Icons.cloud_upload_outlined,
-                    tr(
-                      ar,
-                      '1. Upload / Add Bibliographic Files',
-                      '1. رفع / إضافة الملفات الببليوجرافية',
-                    ),
-                    tr(
-                      ar,
-                      'Take or select photos/PDFs. Add more without losing earlier files.',
-                      'التقط أو اختر صوراً وملفات PDF وأضف المزيد دون فقد الملفات السابقة.',
-                    ),
-                    () => pickFiles(ar),
-                  ),
-                  if (selectedFiles.isNotEmpty)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          children: [
-                            Text(
-                              tr(
-                                ar,
-                                '${selectedFiles.length} file(s) currently selected',
-                                'عدد الملفات المحددة حالياً: ${selectedFiles.length}',
-                              ),
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            for (int i = 0; i < selectedFiles.length; i++)
-                              ListTile(
-                                leading: Icon(
-                                  selectedFiles[i]
-                                              .extension
-                                              ?.toLowerCase() ==
-                                          'pdf'
-                                      ? Icons.picture_as_pdf_outlined
-                                      : Icons.image_outlined,
-                                ),
-                                title: Text(selectedFiles[i].name),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.close),
-                                  onPressed: () => removeFile(i),
-                                ),
-                              ),
-                            Wrap(
-                              spacing: 8,
-                              children: [
-                                FilledButton.tonalIcon(
-                                  onPressed: () => pickFiles(ar),
-                                  icon: const Icon(
-                                    Icons.add_photo_alternate_outlined,
-                                  ),
-                                  label: Text(
-                                    tr(
-                                      ar,
-                                      'Add More Photos / PDFs',
-                                      'إضافة صور / ملفات PDF أخرى',
-                                    ),
-                                  ),
-                                ),
-                                TextButton.icon(
-                                  onPressed: clearFiles,
-                                  icon: const Icon(Icons.delete_outline),
-                                  label: Text(
-                                    tr(ar, 'Clear All Files', 'مسح جميع الملفات'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  actionCard(
-                    Icons.auto_awesome,
-                    tr(
-                      ar,
-                      '2. Generate MARC Record',
-                      '2. إنشاء تسجيلة MARC',
-                    ),
-                    tr(
-                      ar,
-                      'AI analyses all selected pages together and creates one MARC 21 record',
-                      'يحلل الذكاء الاصطناعي جميع الصفحات المحددة معاً وينشئ تسجيلة MARC 21 واحدة',
-                    ),
-                    isAnalyzing
-    ? null
-    : () async {
-        try {
-          final result = await Supabase.instance.client
-    .rpc('check_marc_credit');
-
-final data = Map<String, dynamic>.from(result as Map);
-
-final bool allowed = data['allowed'] == true;
-final bool unlimited = data['unlimited'] == true;
-final int used = (data['used'] as num?)?.toInt() ?? 0;
-final int remaining = (data['remaining'] as num?)?.toInt() ?? 0;
-final String packageName =
-    data['package_name']?.toString() ?? 'Unknown';
-
-if (!allowed) {
-  if (!mounted) return;
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        tr(
-          ar,
-          'Your $packageName MARC record limit has been reached.',
-          'لقد وصلت إلى الحد الأقصى لسجلات MARC في باقة $packageName.',
-        ),
-      ),
-    ),
-  );
-
-  return;
-}
-
-          
-
-          await generateMarcRecord(ar);
-  } catch (e, stackTrace) {
-  debugPrint('MARC ACCESS ERROR TYPE: ${e.runtimeType}');
-  debugPrint('MARC ACCESS ERROR: $e');
-  debugPrint('MARC ACCESS STACK: $stackTrace');
-
-  if (!mounted) return;
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      duration: const Duration(seconds: 10),
-      content: Text(
-        'MARC access error [${e.runtimeType}]: $e',
-      ),
-    ),
-  );
-}
-},
-loading: isAnalyzing,
-                  ),
-                  actionCard(
-  Icons.summarize_outlined,
-  tr(
-    ar,
-    '3. Generate AI Summary / Abstract',
-    '3. إنشاء الملخص بالذكاء الاصطناعي',
-  ),
- tr(
-  ar,
-  'AI creates a summary from the uploaded images/PDF and prepares MARC field 520.',
-  'ينشئ الذكاء الاصطناعي ملخصاً من الصور أو ملفات PDF المرفوعة ويجهز حقل MARC 520.',
-),
-isAnalyzing
-    ? null
-    : () => generateAiSummary(ar),
-),
-
-
-                  actionCard(
-                    Icons.fact_check_outlined,
-                    tr(
-                      ar,
-                      '4. Review & Edit MARC',
-                      '4. مراجعة وتعديل MARC',
-                    ),
-                    tr(
-                      ar,
-                      'Librarian verifies, corrects, adds fields and approves the record',
-                      'يقوم أمين المكتبة بالمراجعة والتصحيح وإضافة الحقول واعتماد التسجيلة',
-                    ),
-                    marcRecord == null ? null : () => reviewMarcRecord(ar),
-                  ),
-                  actionCard(
-                    Icons.add_shopping_cart,
-                    tr(
-                      ar,
-                      '5. Add Approved Record to Cart',
-                      '5. إضافة التسجيلة المعتمدة إلى السلة',
-                    ),
-                    isReviewed
-                        ? tr(
-                            ar,
-                            'Approved record is ready for the Master MARC Cart',
-                            'التسجيلة المعتمدة جاهزة للإضافة إلى سلة MARC الرئيسية',
-                          )
-                        : tr(
-                            ar,
-                            'Review and approve the MARC record first',
-                            'يرجى مراجعة واعتماد تسجيلة MARC أولاً',
-                          ),
-                    isReviewed ? () => addApprovedRecordToCart(ar) : null,
-                  ),
-                  actionCard(
-                    Icons.inventory_2_outlined,
-                    tr(
-                      ar,
-                      '5. View Master MARC Cart',
-                      '5. عرض سلة MARC الرئيسية',
-                    ),
-                    marcCart.isEmpty
-                        ? tr(
-                            ar,
-                            'No records currently in the cart',
-                            'لا توجد تسجيلات حالياً في السلة',
-                          )
-                        : tr(
-                            ar,
-                            '${marcCart.length} approved record(s) ready for Excel download',
-                            '${marcCart.length} تسجيلة معتمدة جاهزة للتصدير إلى Excel',
-                          ),
-                    openCart,
-                    trailing: CircleAvatar(
-                      radius: 18,
-                      child: Text(marcCart.length.toString()),
-                    ),
+                  CataloguingWizardPanel(
+                    arabic: ar,
+                    step: wizardStep,
+                    maxAvailableStep: wizardMaxStep,
+                    busy: isAnalyzing,
+                    filenames: selectedFiles.map((file) => file.name).toList(),
+                    hasMarcRecord: marcRecord != null,
+                    approved: isReviewed,
+                    cartCount: marcCart.length,
+                    uploadFiles: () => pickFiles(ar),
+                    removeFile: removeFile,
+                    clearFiles: clearFiles,
+                    generateMarc: () => checkCreditsAndGenerateMarc(ar),
+                    generateSummary: () => generateAiSummary(ar),
+                    skipSummary: skipWizardSummary,
+                    review: () => reviewMarcRecord(ar),
+                    addToCart: () => addApprovedRecordToCart(ar),
+                    openCart: () => openCart(),
+                    goToStep: goToWizardStep,
                   ),
                   const SizedBox(height: 18),
                   Container(
@@ -3259,16 +3110,25 @@ class _MarcReviewPageState extends State<MarcReviewPage> {
           padding: const EdgeInsets.all(20),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: Column(
-                children: [
-                  MarcReviewTitlePanel(
-                    arabic: ar,
-                    titleController: controllers['field_245']!,
-                    authorController: controllers['field_100']!,
-                    isbnController: controllers['field_020']!,
-                    previewImage: widget.previewImage,
-                  ),
+              constraints: const BoxConstraints(maxWidth: 1400),
+              child: LayoutBuilder(builder: (context, constraints) {
+                final editor = Column(
+                  children: [
+                    Card(
+                      color: const Color(0xFFF1F5FF),
+                      child: Padding(
+                        padding: const EdgeInsets.all(15),
+                        child: Row(children: [
+                          const Icon(Icons.edit_note, color: Color(0xFF4338CA)),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(
+                            tr(ar, 'EDITABLE MARC RECORD', 'تسجيلة MARC القابلة للتعديل'),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w900, fontSize: 17),
+                          )),
+                        ]),
+                      ),
+                    ),
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -3414,7 +3274,28 @@ class _MarcReviewPageState extends State<MarcReviewPage> {
                     ),
                   ),
                 ],
-              ),
+              );
+                final preview = BookReviewPreviewPane(
+                  arabic: ar,
+                  controllers: controllers,
+                  cover: widget.previewImage,
+                );
+                if (constraints.maxWidth >= 1020) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(width: 415, child: preview),
+                      const SizedBox(width: 20),
+                      Expanded(child: editor),
+                    ],
+                  );
+                }
+                return Column(children: [
+                  preview,
+                  const SizedBox(height: 20),
+                  editor,
+                ]);
+              }),
             ),
           ),
         ),
