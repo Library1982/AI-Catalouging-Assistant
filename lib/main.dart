@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:typed_data';
+import 'catalogue_showcase_panel.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -1899,6 +1900,19 @@ class _HomePageState extends State<HomePage> {
 
   bool isAnalyzing = false;
   bool isReviewed = false;
+  String showcaseDraftTitle = '';
+
+  Uint8List? get showcaseCover {
+    for (final file in selectedFiles) {
+      final extension = file.extension?.toLowerCase();
+      if (extension == 'jpg' || extension == 'jpeg' ||
+          extension == 'png' || extension == 'webp') {
+        return file.bytes;
+      }
+    }
+    return null;
+  }
+
   String statusEnglish = 'Ready to catalogue a new item.';
   String statusArabic = 'جاهز لفهرسة مادة جديدة.';
 
@@ -1921,6 +1935,7 @@ class _HomePageState extends State<HomePage> {
       if (result == null || result.files.isEmpty) return;
 
       setState(() {
+        if (selectedFiles.isEmpty) showcaseDraftTitle = '';
         selectedFiles.addAll(result.files);
         marcRecord = null;
         isReviewed = false;
@@ -1940,6 +1955,7 @@ class _HomePageState extends State<HomePage> {
   void removeFile(int index) {
     setState(() {
       selectedFiles.removeAt(index);
+      if (selectedFiles.isEmpty) showcaseDraftTitle = '';
       marcRecord = null;
       isReviewed = false;
       if (selectedFiles.isEmpty) {
@@ -1955,6 +1971,7 @@ class _HomePageState extends State<HomePage> {
   void clearFiles() {
     setState(() {
       selectedFiles.clear();
+      showcaseDraftTitle = '';
       marcRecord = null;
       isReviewed = false;
       statusEnglish = 'Files cleared. Ready for a new item.';
@@ -2312,6 +2329,7 @@ Future<void> generateAiSummary(bool ar) async {
     setState(() {
       marcCart.add(copy);
       selectedFiles.clear();
+      showcaseDraftTitle = '';
       marcRecord = null;
       isReviewed = false;
       statusEnglish =
@@ -2468,6 +2486,21 @@ Future<void> generateAiSummary(bool ar) async {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 28),
+                  CatalogueShowcasePanel(
+                    arabic: ar,
+                    uploadedNames: selectedFiles.map((file) => file.name).toList(),
+                    previewImage: showcaseCover,
+                    previewTitle: showcaseDraftTitle,
+                    onPreviewTitleChanged: (value) {
+                      showcaseDraftTitle = value;
+                    },
+                    currentRecord: marcRecord,
+                    isAnalyzing: isAnalyzing,
+                    isApproved: isReviewed,
+                    completedRecords: marcCart,
+                    recordTitle: recordTitle,
+                    recordAuthor: recordAuthor,
+                  ),
                   actionCard(
                     Icons.cloud_upload_outlined,
                     tr(

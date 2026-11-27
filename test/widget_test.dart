@@ -1,30 +1,72 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:dpa_marc_app/main.dart';
+import 'package:dpa_marc_app/catalogue_showcase_panel.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  Widget showcase({
+    List<String> files = const [],
+    String provisionalTitle = '',
+    Map<String, dynamic>? record,
+    bool approved = false,
+    List<Map<String, dynamic>> completed = const [],
+  }) {
+    return MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: CatalogueShowcasePanel(
+            arabic: false,
+            uploadedNames: files,
+            previewImage: null,
+            previewTitle: provisionalTitle,
+            onPreviewTitleChanged: (_) {},
+            currentRecord: record,
+            isAnalyzing: false,
+            isApproved: approved,
+            completedRecords: completed,
+            recordTitle: (r) => r['title']?.toString() ?? 'Untitled MARC record',
+            recordAuthor: (r) => r['author']?.toString() ?? '',
+          ),
+        ),
+      ),
+    );
+  }
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  testWidgets('shows the upload immediately without inventing a title', (tester) async {
+    await tester.pumpWidget(
+      showcase(files: const ['front-cover.jpg']),
+    );
+    expect(find.text('Title awaiting identification'), findsOneWidget);
+    expect(find.text('front-cover.jpg'), findsOneWidget);
+    expect(find.text('Uploaded'), findsOneWidget);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('displays MARC title and author after generation', (tester) async {
+    await tester.pumpWidget(showcase(
+      files: const ['front-cover.jpg'],
+      provisionalTitle: 'Provisional',
+      record: {'title': 'The Book of Knowledge', 'author': 'A. Author'},
+    ));
+    expect(find.text('The Book of Knowledge'), findsOneWidget);
+    expect(find.text('A. Author'), findsOneWidget);
+    expect(find.text('MARC generated'), findsOneWidget);
+    expect(find.text('Provisional'), findsNothing);
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  testWidgets('keeps catalogued books visible in the next session', (tester) async {
+    await tester.pumpWidget(showcase(
+      completed: const [{'title': 'Completed Book', 'author': 'Scholar'}],
+    ));
+    expect(find.text('Completed Book'), findsOneWidget);
+    expect(find.text('Catalogued'), findsOneWidget);
+  });
+
+  testWidgets('shows approval state for current record', (tester) async {
+    await tester.pumpWidget(showcase(
+      files: const ['title.pdf'],
+      record: {'title': 'Approved Title', 'author': 'Scholar'},
+      approved: true,
+    ));
+    expect(find.text('Approved Title'), findsOneWidget);
+    expect(find.text('Approved'), findsOneWidget);
   });
 }
