@@ -90,18 +90,36 @@ class _CatalogueShowcasePanelState extends State<CatalogueShowcasePanel> {
     );
   }
 
-  Widget _cover() => ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+
+  Widget _cover({required bool wide}) {
+    final width = wide ? 220.0 : 154.0;
+    final height = wide ? 290.0 : 205.0;
+    return Container(
+      padding: const EdgeInsets.all(7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE0E7FF),
+        borderRadius: BorderRadius.circular(19),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x18253276),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(13),
         child: SizedBox(
-          width: 74,
-          height: 98,
+          width: width,
+          height: height,
           child: widget.previewImage == null
               ? Container(
-                  color: const Color(0xFFE0E7FF),
-                  child: const Icon(
-                    Icons.menu_book_rounded,
-                    color: Color(0xFF3730A3),
-                    size: 36,
+                  alignment: Alignment.center,
+                  color: const Color(0xFFC7D2FE),
+                  child: Icon(
+                    Icons.auto_stories_rounded,
+                    color: const Color(0xFF3730A3),
+                    size: wide ? 82 : 58,
                   ),
                 )
               : Image.memory(
@@ -109,127 +127,231 @@ class _CatalogueShowcasePanelState extends State<CatalogueShowcasePanel> {
                   fit: BoxFit.cover,
                   gaplessPlayback: true,
                   errorBuilder: (_, __, ___) => Container(
-                    color: const Color(0xFFE0E7FF),
-                    child: const Icon(Icons.menu_book_rounded),
+                    alignment: Alignment.center,
+                    color: const Color(0xFFC7D2FE),
+                    child: const Icon(Icons.menu_book_rounded, size: 58),
                   ),
                 ),
         ),
-      );
+      ),
+    );
+  }
 
-  Widget _activeCard() {
-    final record = widget.currentRecord;
-    final author = record == null ? '' : widget.recordAuthor(record).trim();
+  Widget _loadingWidget() {
     return Container(
+      key: const Key('showcase-loading'),
       width: double.infinity,
       padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFF),
-        border: Border.all(color: const Color(0xFFC7D2FE)),
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFFEDE9FE),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFDDD6FE)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _pill(_label('CURRENT BOOK', 'الكتاب الحالي'),
-                  fill: const Color(0xFFE0E7FF),
-                  foreground: const Color(0xFF3730A3)),
-              _pill(_stageText,
-                  fill: _stageColor.withValues(alpha: 0.10),
-                  foreground: _stageColor),
-              _pill(_label(
-                '${widget.uploadedNames.length} source file(s)',
-                'عدد الملفات: ${widget.uploadedNames.length}',
-              )),
-            ],
-          ),
-          const SizedBox(height: 14),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _cover(),
-              const SizedBox(width: 14),
+              const SizedBox(
+                width: 25,
+                height: 25,
+                child: CircularProgressIndicator(strokeWidth: 3),
+              ),
+              const SizedBox(width: 13),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _currentTitle,
-                      textAlign: TextAlign.start,
-                      style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                        height: 1.35,
-                        color: Color(0xFF172554),
-                      ),
-                    ),
-                    if (author.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        author,
-                        style: const TextStyle(color: Color(0xFF475569)),
-                      ),
-                    ],
-                    const SizedBox(height: 7),
-                    Text(
-                      widget.uploadedNames.first,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  _label('AI is processing your book…',
+                      'الذكاء الاصطناعي يعالج كتابك…'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    color: Color(0xFF4C1D95),
+                  ),
                 ),
               ),
             ],
           ),
-          if (record == null) ...[
-            const SizedBox(height: 14),
-            TextFormField(
-              key: ValueKey('showcase-title-${widget.uploadedNames.first}'),
-              initialValue: widget.previewTitle,
-              onChanged: widget.onPreviewTitleChanged,
-              decoration: InputDecoration(
-                labelText: _label(
-                  'Optional: enter a display title before MARC generation',
-                  'اختياري: اكتب عنواناً للعرض قبل إنشاء MARC',
-                ),
-                hintText: _label('Book title', 'عنوان الكتاب'),
-                prefixIcon: const Icon(Icons.edit_outlined),
-                filled: true,
-                fillColor: Colors.white,
-                isDense: true,
-                border: const OutlineInputBorder(),
-              ),
-            ),
-          ],
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 7,
-            runSpacing: 7,
-            children: [
-              _pill(_label('1 · Uploaded', '١ · تم الرفع'),
-                  fill: const Color(0xFFDCFCE7),
-                  foreground: const Color(0xFF166534)),
-              _pill(_label('2 · MARC generated', '٢ · إنشاء MARC'),
-                  fill: record != null
-                      ? const Color(0xFFDCFCE7)
-                      : const Color(0xFFF1F5F9)),
-              _pill(_label('3 · Approved', '٣ · الاعتماد'),
-                  fill: widget.isApproved
-                      ? const Color(0xFFDCFCE7)
-                      : const Color(0xFFF1F5F9)),
-              _pill(_label('4 · Added to cart', '٤ · إضافة إلى السلة')),
-            ],
+          const SizedBox(height: 13),
+          const LinearProgressIndicator(
+            minHeight: 6,
+            borderRadius: BorderRadius.all(Radius.circular(20)),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            _label('Reading uploaded pages and preparing bibliographic details. Progress is shown while the request runs.',
+                'جارٍ قراءة الصفحات المرفوعة وتجهيز البيانات الببليوجرافية. يظهر مؤشر التحميل أثناء تنفيذ الطلب.'),
+            style: const TextStyle(fontSize: 12, color: Color(0xFF6D28D9)),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _activeCard() {
+    final record = widget.currentRecord;
+    final author = record == null ? '' : widget.recordAuthor(record).trim();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 720;
+        final details = Column(
+          crossAxisAlignment: wide
+              ? CrossAxisAlignment.start
+              : CrossAxisAlignment.center,
+          children: [
+            Wrap(
+              alignment: wide ? WrapAlignment.start : WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _pill(_label('CURRENT BOOK', 'الكتاب الحالي'),
+                    fill: const Color(0xFFE0E7FF),
+                    foreground: const Color(0xFF3730A3)),
+                _pill(_stageText,
+                    fill: _stageColor.withValues(alpha: 0.10),
+                    foreground: _stageColor),
+                _pill(_label(
+                  '${widget.uploadedNames.length} source file(s)',
+                  'عدد الملفات: ${widget.uploadedNames.length}',
+                )),
+              ],
+            ),
+            const SizedBox(height: 22),
+            Text(
+              _currentTitle,
+              textAlign: wide ? TextAlign.start : TextAlign.center,
+              style: TextStyle(
+                fontSize: wide ? 31 : 23,
+                fontWeight: FontWeight.w900,
+                height: 1.3,
+                color: const Color(0xFF172554),
+              ),
+            ),
+            if (author.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                author,
+                textAlign: wide ? TextAlign.start : TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF475569),
+                  fontSize: 19,
+                  height: 1.35,
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            Text(
+              widget.uploadedNames.first,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF64748B),
+              ),
+            ),
+            if (widget.isAnalyzing) ...[
+              const SizedBox(height: 24),
+              _loadingWidget(),
+            ] else if (record == null) ...[
+              const SizedBox(height: 20),
+              TextFormField(
+                key: ValueKey('showcase-title-${widget.uploadedNames.first}'),
+                initialValue: widget.previewTitle,
+                onChanged: widget.onPreviewTitleChanged,
+                decoration: InputDecoration(
+                  labelText: _label(
+                    'Optional: enter a title before MARC generation',
+                    'اختياري: إدخال عنوان قبل إنشاء MARC',
+                  ),
+                  prefixIcon: const Icon(Icons.edit_outlined),
+                  filled: true,
+                  fillColor: Colors.white,
+                  isDense: true,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 21),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    widget.isApproved
+                        ? Icons.verified_rounded
+                        : Icons.fact_check_outlined,
+                    color: const Color(0xFF047857),
+                  ),
+                  const SizedBox(width: 9),
+                  Flexible(
+                    child: Text(
+                      widget.isApproved
+                          ? _label('Record approved', 'تم اعتماد التسجيلة')
+                          : _label('MARC generated — ready for review',
+                              'تم إنشاء MARC — جاهز للمراجعة'),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: Color(0xFF065F46),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        );
+
+        return Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 365),
+          padding: EdgeInsets.all(wide ? 28 : 18),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFF),
+            border: Border.all(color: const Color(0xFFC7D2FE)),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(
+            children: [
+              if (wide)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _cover(wide: true),
+                    const SizedBox(width: 32),
+                    Expanded(child: details),
+                  ],
+                )
+              else ...[
+                Center(child: _cover(wide: false)),
+                const SizedBox(height: 19),
+                details,
+              ],
+              const SizedBox(height: 24),
+              const Divider(color: Color(0xFFCBD5E1)),
+              const SizedBox(height: 13),
+              Wrap(
+                alignment: WrapAlignment.center,
+                runAlignment: WrapAlignment.center,
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  _pill(_label('1 · Uploaded', '١ · تم الرفع'),
+                      fill: const Color(0xFFDCFCE7),
+                      foreground: const Color(0xFF166534)),
+                  _pill(_label('2 · MARC generated', '٢ · إنشاء MARC'),
+                      fill: record != null
+                          ? const Color(0xFFDCFCE7)
+                          : const Color(0xFFF1F5F9)),
+                  _pill(_label('3 · Approved', '٣ · الاعتماد'),
+                      fill: widget.isApproved
+                          ? const Color(0xFFDCFCE7)
+                          : const Color(0xFFF1F5F9)),
+                  _pill(_label('4 · Added to cart', '٤ · إضافة إلى السلة')),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
