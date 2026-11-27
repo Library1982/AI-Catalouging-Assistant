@@ -2453,9 +2453,25 @@ Future<void> generateAiSummary(bool ar) async {
           padding: const EdgeInsets.all(20),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 800),
+              constraints: const BoxConstraints(maxWidth: 1120),
               child: Column(
                 children: [
+                  CatalogueShowcasePanel(
+                    arabic: ar,
+                    uploadedNames: selectedFiles.map((file) => file.name).toList(),
+                    previewImage: showcaseCover,
+                    previewTitle: showcaseDraftTitle,
+                    onPreviewTitleChanged: (value) {
+                      showcaseDraftTitle = value;
+                    },
+                    currentRecord: marcRecord,
+                    isAnalyzing: isAnalyzing,
+                    isApproved: isReviewed,
+                    completedRecords: marcCart,
+                    recordTitle: recordTitle,
+                    recordAuthor: recordAuthor,
+                  ),
+                  const SizedBox(height: 18),
                   Container(
                     width: 105,
                     height: 105,
@@ -2486,22 +2502,6 @@ Future<void> generateAiSummary(bool ar) async {
                       'الكتب والرسائل والأطروحات باللغة العربية والإنجليزية',
                     ),
                     textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 28),
-                  CatalogueShowcasePanel(
-                    arabic: ar,
-                    uploadedNames: selectedFiles.map((file) => file.name).toList(),
-                    previewImage: showcaseCover,
-                    previewTitle: showcaseDraftTitle,
-                    onPreviewTitleChanged: (value) {
-                      showcaseDraftTitle = value;
-                    },
-                    currentRecord: marcRecord,
-                    isAnalyzing: isAnalyzing,
-                    isApproved: isReviewed,
-                    completedRecords: marcCart,
-                    recordTitle: recordTitle,
-                    recordAuthor: recordAuthor,
                   ),
                   actionCard(
                     Icons.cloud_upload_outlined,
