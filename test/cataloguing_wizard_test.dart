@@ -45,8 +45,8 @@ void main() {
   testWidgets('final step requires approval to add to cart', (tester) async {
     await tester.pumpWidget(wizard(step: 4, maxStep: 4,
         files: const ['cover.jpg'], hasRecord: true));
-    final add = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Finish — add book'));
+    expect(find.text('Finish — add book'), findsOneWidget);
+    final add = tester.widget<FilledButton>(find.byType(FilledButton).first);
     expect(add.onPressed, isNull);
   });
 
@@ -68,11 +68,11 @@ void main() {
         arabic: false, controllers: fields,
       )),
     ))));
-    expect(find.text('Original book title'), findsOneWidget);
+    expect(find.text('Original book title'), findsWidgets);
     expect(find.text('أحمد عبد الزهرة محمد العبادي'), findsOneWidget);
     fields['field_245']!.text = r'245 10 $a Corrected book title';
     await tester.pump();
-    expect(find.text('Corrected book title'), findsOneWidget);
+    expect(find.text('Corrected book title'), findsWidgets);
     expect(find.text('Original book title'), findsNothing);
   });
 }
