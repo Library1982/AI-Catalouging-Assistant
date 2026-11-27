@@ -9,7 +9,7 @@ class MarcDisplayText {
     if (field == null || field.trim().isEmpty) return '';
     final firstLine = field.split('\n').first;
     final match = RegExp(
-      '\\
+      r'[$]' + RegExp.escape(code) + r'\s*(.*?)(?=\s*[$][a-z0-9]|$)',
       caseSensitive: false,
       dotAll: true,
       multiLine: false,
