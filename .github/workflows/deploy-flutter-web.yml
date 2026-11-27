@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: marc-ai-github-pages
+  group: marc-ai-github-pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
