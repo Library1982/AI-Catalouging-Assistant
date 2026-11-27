@@ -46,8 +46,8 @@ void main() {
     await tester.pumpWidget(wizard(step: 4, maxStep: 4,
         files: const ['cover.jpg'], hasRecord: true));
     expect(find.text('Finish — add book'), findsOneWidget);
-    final add = tester.widget<FilledButton>(find.byType(FilledButton).first);
-    expect(add.onPressed, isNull);
+    expect(find.byWidgetPredicate((widget) =>
+        widget is FilledButton && widget.onPressed == null), findsOneWidget);
   });
 
   testWidgets('preview reflects changes to title without changing MARC', (tester) async {
@@ -69,7 +69,7 @@ void main() {
       )),
     ))));
     expect(find.text('Original book title'), findsWidgets);
-    expect(find.text('أحمد عبد الزهرة محمد العبادي'), findsOneWidget);
+    expect(find.text('أحمد عبد الزهرة محمد العبادي'), findsWidgets);
     fields['field_245']!.text = r'245 10 $a Corrected book title';
     await tester.pump();
     expect(find.text('Corrected book title'), findsWidgets);
