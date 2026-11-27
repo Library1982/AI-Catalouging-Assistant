@@ -16,7 +16,7 @@ void main() {
 
   test('takes first ISBN when multiple MARC 020 entries are present', () {
     expect(
-      MarcDisplayText.isbn('020 ## \\$a 9781785961106\\n020 ## \\$a 1785961101'),
+      MarcDisplayText.isbn('020 ## ' r'$a' ' 9781785961106\n020 ## ' r'$a' ' 1785961101'),
       '9781785961106',
     );
   });
