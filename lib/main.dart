@@ -1935,8 +1935,8 @@ class _HomePageState extends State<HomePage> {
       if (result == null || result.files.isEmpty) return;
 
       setState(() {
+        if (selectedFiles.isEmpty) showcaseDraftTitle = '';
         selectedFiles.addAll(result.files);
-        showcaseDraftTitle = '';
         marcRecord = null;
         isReviewed = false;
         statusEnglish =
@@ -1955,7 +1955,7 @@ class _HomePageState extends State<HomePage> {
   void removeFile(int index) {
     setState(() {
       selectedFiles.removeAt(index);
-      showcaseDraftTitle = '';
+      if (selectedFiles.isEmpty) showcaseDraftTitle = '';
       marcRecord = null;
       isReviewed = false;
       if (selectedFiles.isEmpty) {
