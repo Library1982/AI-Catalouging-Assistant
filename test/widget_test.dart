@@ -8,6 +8,7 @@ void main() {
     String provisionalTitle = '',
     Map<String, dynamic>? record,
     bool approved = false,
+    bool analyzing = false,
     List<Map<String, dynamic>> completed = const [],
   }) {
     return MaterialApp(
@@ -20,7 +21,7 @@ void main() {
             previewTitle: provisionalTitle,
             onPreviewTitleChanged: (_) {},
             currentRecord: record,
-            isAnalyzing: false,
+            isAnalyzing: analyzing,
             isApproved: approved,
             completedRecords: completed,
             recordTitle: (r) => r['title']?.toString() ?? 'Untitled MARC record',
@@ -31,6 +32,15 @@ void main() {
     );
   }
 
+  testWidgets('shows loading widgets while analysing', (tester) async {
+    await tester.pumpWidget(showcase(
+      files: const ['front-cover.jpg'],
+      analyzing: true,
+    ));
+    expect(find.byKey(const Key('showcase-loading')), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+  });
   testWidgets('shows the upload immediately without inventing a title', (tester) async {
     await tester.pumpWidget(
       showcase(files: const ['front-cover.jpg']),
