@@ -3110,16 +3110,25 @@ class _MarcReviewPageState extends State<MarcReviewPage> {
           padding: const EdgeInsets.all(20),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: Column(
-                children: [
-                  MarcReviewTitlePanel(
-                    arabic: ar,
-                    titleController: controllers['field_245']!,
-                    authorController: controllers['field_100']!,
-                    isbnController: controllers['field_020']!,
-                    previewImage: widget.previewImage,
-                  ),
+              constraints: const BoxConstraints(maxWidth: 1400),
+              child: LayoutBuilder(builder: (context, constraints) {
+                final editor = Column(
+                  children: [
+                    Card(
+                      color: const Color(0xFFF1F5FF),
+                      child: Padding(
+                        padding: const EdgeInsets.all(15),
+                        child: Row(children: [
+                          const Icon(Icons.edit_note, color: Color(0xFF4338CA)),
+                          const SizedBox(width: 10),
+                          Expanded(child: Text(
+                            tr(ar, 'EDITABLE MARC RECORD', 'تسجيلة MARC القابلة للتعديل'),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w900, fontSize: 17),
+                          )),
+                        ]),
+                      ),
+                    ),
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -3265,7 +3274,28 @@ class _MarcReviewPageState extends State<MarcReviewPage> {
                     ),
                   ),
                 ],
-              ),
+              );
+                final preview = BookReviewPreviewPane(
+                  arabic: ar,
+                  controllers: controllers,
+                  cover: widget.previewImage,
+                );
+                if (constraints.maxWidth >= 1020) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(width: 415, child: preview),
+                      const SizedBox(width: 20),
+                      Expanded(child: editor),
+                    ],
+                  );
+                }
+                return Column(children: [
+                  preview,
+                  const SizedBox(height: 20),
+                  editor,
+                ]);
+              }),
             ),
           ),
         ),
