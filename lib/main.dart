@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:typed_data';
 import 'catalogue_showcase_panel.dart';
+import 'marc_review_title_panel.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -2118,6 +2119,7 @@ if (data['success'] == true && data['record'] != null) {
       MaterialPageRoute(
         builder: (_) => MarcReviewPage(
           record: Map<String, dynamic>.from(marcRecord!),
+          previewImage: showcaseCover,
         ),
       ),
     );
@@ -2945,9 +2947,11 @@ class _MarcCartPageState extends State<MarcCartPage> {
 
 class MarcReviewPage extends StatefulWidget {
   final Map<String, dynamic> record;
+  final Uint8List? previewImage;
   const MarcReviewPage({
     super.key,
     required this.record,
+    this.previewImage,
   });
 
   @override
@@ -3258,6 +3262,13 @@ class _MarcReviewPageState extends State<MarcReviewPage> {
               constraints: const BoxConstraints(maxWidth: 900),
               child: Column(
                 children: [
+                  MarcReviewTitlePanel(
+                    arabic: ar,
+                    titleController: controllers['field_245']!,
+                    authorController: controllers['field_100']!,
+                    isbnController: controllers['field_020']!,
+                    previewImage: widget.previewImage,
+                  ),
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
